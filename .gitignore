@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+
+# IDE / editor artifacts
+.vscode/
+.idea/
+
+# Training outputs and logs
+NEST-rPPG/Result/
+NEST-rPPG/Result_log/
+NEST-rPPG/Result_Model/
+
+# Generated wave files for BVP evaluation
+NEST-rPPG/Wave_sort/
+
+# Generated STMap index files (can be regenerated with reData=1)
+NEST-rPPG/STMap/STMap_Index/
+
+# Full STMap datasets (prevent new untracked data under STMap)
+NEST-rPPG/STMap/
+STMap/
+
+# Terminal state (Cursor / IDE)
+terminals/
+
