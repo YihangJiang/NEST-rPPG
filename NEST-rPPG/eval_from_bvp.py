@@ -141,6 +141,7 @@ def visualize_mat_waves(
     max_segments_per_subject: int = 3,
     figsize: tuple = (12, 4),
     fs: float = 30.0,
+    vis_run_name: Optional[str] = None,
 ):
     """
     Visualize BVP waves from Wave_sort .mat files (gt vs predicted).
@@ -154,6 +155,8 @@ def visualize_mat_waves(
         max_segments_per_subject: Max number of segments to show per subject when segment_indices is None.
         figsize: (width, height) per subplot figure.
         fs: BVP sampling frequency [Hz] for time axis (e.g. 30 for .mat).
+        vis_run_name: Optional name for first-level subfolder under 'vis/'. If provided,
+            per-subject folders are created at save_path/vis/<vis_run_name>/<subject_id>/.
     """
     save_path = os.path.abspath(save_path)
     all_files = [f for f in os.listdir(save_path) if f.endswith(".mat")]
@@ -175,6 +178,7 @@ def visualize_mat_waves(
         subject_ids = [s for s in subject_ids if s in common]
 
     pairs_raw: List[dict] = []  # list of {"subject_id", "segment", "gt", "pred"}
+    vis_root = os.path.join(save_path, "vis") if vis_run_name is not None else None
 
     for sid in subject_ids:
         gt_mat = scio.loadmat(os.path.join(save_path, gt_by_id[sid]))
@@ -192,6 +196,10 @@ def visualize_mat_waves(
             segs = [i for i in segment_indices if 0 <= i < num_seg]
         if not segs:
             continue
+        # Ensure visualization directory for this subject exists if requested
+        if vis_root is not None:
+            subject_vis_dir = os.path.join(vis_root, vis_run_name, sid)
+            os.makedirs(subject_vis_dir, exist_ok=True)
         n_plots = len(segs)
         fig, axes = plt.subplots(n_plots, 1, figsize=(figsize[0], figsize[1] * n_plots), sharex=True)
         if n_plots == 1:
@@ -220,9 +228,17 @@ def visualize_mat_waves(
         axes[-1].set_xlabel("Time (s)")
         fig.suptitle(f"BVP waves: subject {sid}", y=1.02)
         plt.tight_layout()
+        # Save figure into vis/<vis_run_name>/<subject_id>/ if requested
+        if vis_root is not None:
+            subject_vis_dir = os.path.join(vis_root, vis_run_name, sid)
+            os.makedirs(subject_vis_dir, exist_ok=True)
+            seg_str = "_".join(str(s) for s in segs)
+            fig_path = os.path.join(subject_vis_dir, f"segments_{seg_str}.png")
+            fig.savefig(fig_path, dpi=150)
         plt.show()
 
     return pairs_raw
+
 
 
 
@@ -232,16 +248,25 @@ def visualize_mat_waves(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 save_path = os.path.join(BASE_DIR, "Wave_sort", "PURE")
 
+# Name for first-level visualization subfolder under save_path/vis/.
+# Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/
+VIS_RUN_NAME = "src_loss_sum"  # <-- edit this to change the subfolder name
+
 # %%
 # Optional: visualize waves before evaluation (uncomment and run)
-pairs = visualize_mat_waves(save_path, subject_ids=["10003", "10005"], segment_indices=[0, 1])
+pairs = visualize_mat_waves(
+    save_path,
+    subject_ids=["10003", "10004",  "10005"],
+    segment_indices=[0, 1],
+    vis_run_name=VIS_RUN_NAME,
+)
 # %%
 import numpy as np
 from scipy.signal import welch
 
 # signal: 1D numpy array
 # fs: sampling frequency (Hz)
-signal = pairs[3]['gt']
+signal = pairs[5]['pred']
 f, psd = welch(
     signal,
     fs=30,
