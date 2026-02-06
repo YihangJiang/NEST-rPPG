@@ -7,14 +7,16 @@ import scipy.io as scio
 from scipy import interpolate
 import scipy.io as io
 
+# Base path: directory containing this script (project root)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 gt_name = 'BVP.mat'
-savePath = r'./Wave_sort/UBFC/'
+savePath = os.path.join(BASE_DIR, 'Wave_sort', 'PURE')
 if not os.path.exists(savePath):
     os.makedirs(savePath)
-Idex_files = r'./STMap/STMap_Index/UBFC'
-gt_path = r'./Result/rPPGNet_UBFCSpatial0.5Temporal0.1WAVE_ALL.mat'
-pr_path = r'./Result/rPPGNet_UBFCSpatial0.5Temporal0.1WAVE_PR_ALL.mat'
+Idex_files = os.path.join(BASE_DIR, 'STMap', 'STMap_Index', 'PURE')
+gt_path = os.path.join(BASE_DIR, 'Result', 'rPPGNet_PURE_srcUBFCSpatial0.5Temporal0.1WAVE_ALL.mat')
+pr_path = os.path.join(BASE_DIR, 'Result', 'rPPGNet_PURE_srcUBFCSpatial0.5Temporal0.1WAVE_PR_ALL.mat')
 pr = scio.loadmat(pr_path)['Wave']
 pr = np.squeeze(np.array(pr.astype('float32')))
 gt = scio.loadmat(gt_path)['Wave']
@@ -42,8 +44,8 @@ for HR_index in range(pr.shape[0]):
         else:
             print(lastPath)
             print(PERSON)
-            io.savemat(savePath + str(PERSON) + 'pr_Wave.mat', {'Wave': pr_temp})
-            io.savemat(savePath + str(PERSON) + 'gt_Wave.mat', {'Wave': gt_temp})
+            io.savemat(os.path.join(savePath, str(PERSON) + 'pr_Wave.mat'), {'Wave': pr_temp})
+            io.savemat(os.path.join(savePath, str(PERSON) + 'gt_Wave.mat'), {'Wave': gt_temp})
             pr_temp = []
             gt_temp = []
             pr_temp.append(pr[HR_index, :])

@@ -122,7 +122,9 @@ def get_args():
     parser.add_argument('-n', '--frames_num', dest='frames_num', type=int, default=256,
                         help='the num of frames')
     parser.add_argument('-t', '--tgt', dest='tgt', type=str, default='VIPL',
-                        help='the name of target domain: VIPL, COH, V4V, UBFC...')
+                        help='the name of target domain: VIPL, COH, V4V, UBFC, PURE...')
+    parser.add_argument('--src', dest='src', type=str, default=None,
+                        help='Single source domain (e.g. UBFC); if set, train only on this domain')
     return parser.parse_args()
 
 def MyEval(HR_pr, HR_rel):
