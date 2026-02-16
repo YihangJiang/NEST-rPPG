@@ -23,3 +23,6 @@ STMap/
 # Terminal state (Cursor / IDE)
 terminals/
 
+# Video and data files
+*.avi
+*.mat

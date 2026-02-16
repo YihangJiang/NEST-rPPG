@@ -210,16 +210,9 @@ if __name__ == '__main__':
         loss_DM = loss_func_NEST_DM(av, av_aug)
         loss_TA = loss_func_NEST_TA(torch.cat((av, av_aug), dim=0), torch.cat((HR_rels, HR_rel_augs), dim=0))
 
-        # If you want to disable these three losses (purely supervised training),
-        # keep them as tensors but zero them out so logging and .backward() remain valid.
-        loss_CM = loss_CM * 0.0
-        loss_DM = loss_DM * 0.0
-        loss_TA = loss_TA * 0.0
-        src_loss_aug_sum = src_loss_aug_sum * 0.0
-
         k = 2.0 / (1.0 + np.exp(-10.0 * iter_num / args.max_iter)) - 1.0
-
-        loss = src_loss_sum + src_loss_aug_sum + 0.1 * k * loss_TA + 0.001 * k * loss_CM + 0.01 * k * loss_DM
+        loss = src_loss_sum + 1*loss_TA
+        # loss = src_loss_sum + src_loss_aug_sum + 0.1 * k * loss_TA + 0.001 * k * loss_CM + 0.01 * k * loss_DM
         if torch.sum(torch.isnan(loss)) > 0:
             print('Nan')
             break

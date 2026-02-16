@@ -14,6 +14,8 @@ from typing import List, Optional
 
 FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
+VIS_RUN_NAME = "src_loss_sum+TA"  # <-- edit this to change the subfolder name
+
 
 # %%
 def bpfilter64(sig: np.ndarray, fs: float) -> np.ndarray:
@@ -250,13 +252,12 @@ save_path = os.path.join(BASE_DIR, "Wave_sort", "PURE")
 
 # Name for first-level visualization subfolder under save_path/vis/.
 # Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/
-VIS_RUN_NAME = "src_loss_sum"  # <-- edit this to change the subfolder name
 
 # %%
 # Optional: visualize waves before evaluation (uncomment and run)
 pairs = visualize_mat_waves(
     save_path,
-    subject_ids=["10003", "10004",  "10005"],
+    subject_ids=["10003", "10004",  "10005", "10006", "10007", "10008", "10009", "10010"],
     segment_indices=[0, 1],
     vis_run_name=VIS_RUN_NAME,
 )

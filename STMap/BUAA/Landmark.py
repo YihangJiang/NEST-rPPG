@@ -22,7 +22,7 @@ def get_file(dir_path, file_type):
 
 
 fileRoot = '/home/haolu/Data/BUAA/'
-fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device='cuda:4')
+fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False, device='cuda:0')
 file_list_p = os.listdir(fileRoot)
 z = 0
 for subfile_p in file_list_p[12:]:

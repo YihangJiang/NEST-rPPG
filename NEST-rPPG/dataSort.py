@@ -1,3 +1,4 @@
+# %%
 import cv2
 import os
 import numpy as np
@@ -22,6 +23,7 @@ pr = np.squeeze(np.array(pr.astype('float32')))
 gt = scio.loadmat(gt_path)['Wave']
 gt = np.squeeze(np.array(gt.astype('float32')))
 
+# %%
 files_list = os.listdir(Idex_files)
 files_list = sorted(files_list)
 temp = scio.loadmat(os.path.join(Idex_files, files_list[0]))
@@ -30,6 +32,7 @@ pr_temp = []
 gt_temp = []
 print(pr.shape)
 PERSON = 10000
+# %%
 for HR_index in range(pr.shape[0]):
     temp = scio.loadmat(os.path.join(Idex_files, files_list[HR_index]))
     nowPath = str(temp['Path'][0])
