@@ -13,13 +13,14 @@ import scipy.io as scio
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # %%
-# ===== Part 1: Compare landmark CSVs =====
+# ===== Part 1: Compare landmark CSVs (NEST-rPPG/STMap/BUAA vs BUAA_my) =====
 print("=" * 60)
-print("PART 1: Comparing landmark CSVs")
+print("PART 1: Comparing landmark CSVs (BUAA original vs BUAA_my)")
 print("=" * 60)
 
-PATH_LABEL = os.path.join(SCRIPT_DIR, "Label", "RGB_lmk.csv")
-PATH_COMP = os.path.join(SCRIPT_DIR, "comp_RGB_lmk.csv")
+STMAP_BUAA_ROOT = os.path.join(SCRIPT_DIR, "NEST-rPPG", "STMap", "BUAA")
+BUAA_MY_ROOT = os.path.join(SCRIPT_DIR, "BUAA_my")
+
 
 def load_lmk_csv(path):
     rows = []
@@ -30,50 +31,51 @@ def load_lmk_csv(path):
                 continue
             vals = [float(x) for x in line.split(",")]
             rows.append(vals)
-    return np.array(rows)
+    return np.array(rows, dtype=float)
 
-print("Loading", PATH_LABEL)
-lmk_label = load_lmk_csv(PATH_LABEL)
-print("Loading", PATH_COMP)
-lmk_comp = load_lmk_csv(PATH_COMP)
 
-n_label, n_comp = lmk_label.shape[0], lmk_comp.shape[0]
-print(f"\nRow counts: Label={n_label}, comp={n_comp}")
+def compare_lmk_pair(path_a, path_b, tag):
+    print("\n---", tag, "---")
+    print("A:", path_a)
+    print("B:", path_b)
+    lmk_a = load_lmk_csv(path_a)
+    lmk_b = load_lmk_csv(path_b)
 
-# Compare over common rows
-n_common = min(n_label, n_comp)
-lmk_label_c = lmk_label[:n_common]
-lmk_comp_c = lmk_comp[:n_common]
+    n_a, n_b = lmk_a.shape[0], lmk_b.shape[0]
+    print(f"Row counts: A={n_a}, B={n_b}")
 
-diff = np.abs(lmk_label_c.astype(float) - lmk_comp_c.astype(float))
+    n_common = min(n_a, n_b)
+    lmk_a_c = lmk_a[:n_common]
+    lmk_b_c = lmk_b[:n_common]
 
-# Count exactly matching rows (all 136 values match)
-exact_matches = np.sum(np.all(diff == 0, axis=1))
-print(f"\nExactly matching rows: {exact_matches}/{n_common} ({100.0*exact_matches/n_common:.2f}%)")
+    diff = np.abs(lmk_a_c - lmk_b_c)
 
-# Per-frame: mean absolute error (over 136 values)
-mae_per_frame = np.mean(diff, axis=1)
-# Per-value (over all frames): mean and max
-mae_overall = np.mean(diff)
-max_diff = np.max(diff)
+    exact_matches = np.sum(np.all(diff == 0, axis=1))
+    print(f"Exactly matching rows: {exact_matches}/{n_common} ({100.0*exact_matches/n_common:.2f}%)")
 
-print(f"\nComparison over first {n_common} frames:")
-print(f"  Mean absolute error (overall): {mae_overall:.6f}")
-print(f"  Max absolute difference:       {max_diff:.6f}")
-print(f"  MAE per frame: min={mae_per_frame.min():.6f}, max={mae_per_frame.max():.6f}, mean={mae_per_frame.mean():.6f}")
+    mae_per_frame = np.mean(diff, axis=1)
+    mae_overall = float(np.mean(diff))
+    max_diff = float(np.max(diff))
 
-# Plot: MAE per frame
-plt.figure(figsize=(10, 4))
-plt.plot(mae_per_frame, label="MAE per frame (136 coords)")
-plt.xlabel("Frame index")
-plt.ylabel("MAE")
-plt.title("Label/RGB_lmk.csv vs comp_RGB_lmk.csv")
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig(os.path.join(SCRIPT_DIR, "compare_lmk_mae_per_frame.png"), dpi=150)
-print(f"\nSaved: compare_lmk_mae_per_frame.png")
-plt.show()
+    print(f"  MAE overall: {mae_overall:.6f}")
+    print(f"  Max diff:    {max_diff:.6f}")
+    print(f"  MAE per frame: min={mae_per_frame.min():.6f}, max={mae_per_frame.max():.6f}, mean={mae_per_frame.mean():.6f}")
+
+# Iterate over all BUAA STMap folders and compare with matching BUAA_my folders
+if not os.path.isdir(STMAP_BUAA_ROOT):
+    print("STMap BUAA root not found:", STMAP_BUAA_ROOT)
+else:
+    buaa_subs = sorted(os.listdir(STMAP_BUAA_ROOT))
+    for name in buaa_subs:
+        stmap_label = os.path.join(STMAP_BUAA_ROOT, name, "Label", "RGB_lmk.csv")
+        my_label = os.path.join(BUAA_MY_ROOT, name, "Label", "RGB_lmk.csv")
+        if not os.path.isfile(stmap_label):
+            continue
+        if not os.path.isfile(my_label):
+            print("\n---", name, "---")
+            print("Missing BUAA_my label:", my_label)
+            continue
+        compare_lmk_pair(stmap_label, my_label, tag=name)
 
 # %%
 # ===== Part 2: Compare BVP .mat files =====
@@ -120,32 +122,4 @@ print(f"  Mean absolute error (MAE):  {mae_bvp:.6f}")
 print(f"  Root mean square error (RMSE): {rmse_bvp:.6f}")
 print(f"  Max absolute difference:    {max_diff_bvp:.6f}")
 
-# Plot: signals overlay
-plt.figure(figsize=(12, 5))
-t = np.arange(n_common_bvp)
-plt.plot(t, ppg_c, label="PPGData.mat (PPG)", alpha=0.7, linewidth=1)
-plt.plot(t, comp_bvp_c, label="comp_BVP.mat (BVP)", alpha=0.7, linewidth=1)
-plt.xlabel("Sample index")
-plt.ylabel("Amplitude")
-plt.title(f"BVP signal comparison (first {n_common_bvp} samples)")
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig(os.path.join(SCRIPT_DIR, "compare_bvp_signals.png"), dpi=150)
-print(f"\nSaved: compare_bvp_signals.png")
-plt.show()
 
-# Plot: difference
-plt.figure(figsize=(12, 4))
-plt.plot(t, diff_bvp, label="Absolute difference", color='red', alpha=0.7, linewidth=1)
-plt.xlabel("Sample index")
-plt.ylabel("|PPG - BVP|")
-plt.title(f"BVP difference (MAE={mae_bvp:.6f})")
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig(os.path.join(SCRIPT_DIR, "compare_bvp_diff.png"), dpi=150)
-print(f"Saved: compare_bvp_diff.png")
-plt.show()
-
-# %%

@@ -3,124 +3,85 @@ import face_alignment
 import cv2
 import os
 import numpy as np
-import shutil
-import pandas as pd
-import json
-import scipy.io as scio
-from scipy import interpolate
 import csv
-# Function: calculate lmk, align the time and get the labels
+# Function: calculate 2D landmarks and save RGB_lmk.csv
 
 
-
-def get_file(dir_path, file_type):
+def get_file(dir_path, suffix):
+    """Return first filename in dir_path ending with suffix, or None."""
+    if not os.path.isdir(dir_path):
+        return None
     for subfile in os.listdir(dir_path):
-            if subfile.endswith(file_type):
-                return subfile
-    print(subfile)
-    print('*************')
-    return 0
+        if subfile.endswith(suffix):
+            return subfile
+    return None
 
 
+# Raw dataset root: fileRoot/Subject/lux_xx.xx/*.avi
 fileRoot = '/mnt/nvme2/rppg_data/BUAA'
-fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False, device='cuda:0')
-file_list_p = os.listdir(fileRoot)
-z = 0
+
+# Preprocessing output root: BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
+if '__file__' in dir():
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'BUAA_my'))
+else:
+    saveRoot = os.path.join(os.getcwd(), 'BUAA_my')
+
+fa = face_alignment.FaceAlignment(
+    face_alignment.LandmarksType.TWO_D,
+    flip_input=False,
+    device='cuda:0',
+)
+
 # %%
-for subfile_p in file_list_p[11:12]:
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
+# For each subject and lux folder under fileRoot, find the .avi and write:
+#   BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
+idx = 0
+for sub_name in sorted(os.listdir(fileRoot)):
+    subj_dir = os.path.join(fileRoot, sub_name)
+    if not os.path.isdir(subj_dir):
         continue
-    file_list = os.listdir(now_path_p)
-    for subfile in file_list:
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
+
+    for lux_name in sorted(os.listdir(subj_dir)):
+        lux_dir = os.path.join(subj_dir, lux_name)
+        if not os.path.isdir(lux_dir):
             continue
-        avi_name = get_file(now_path, 'avi')
+
+        avi_name = get_file(lux_dir, '.avi')
         if not avi_name:
-            print('  Skip (no .avi in):', now_path)
             continue
-        print(z)
-        z = z + 1
-        video_path = os.path.join(now_path, avi_name)
-        print('video_path')
-        print(video_path)
-        save_path = os.path.join(now_path, 'Label')
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-        # 读取 video
+
+        video_path = os.path.join(lux_dir, avi_name)
+        out_folder_name = f"{sub_name}{lux_name}"  # e.g. Sub_01 + 'lux 10.0' -> 'Sub_01lux 10.0'
+        print(idx, out_folder_name)
+        idx += 1
+
+        save_dir = os.path.join(saveRoot, out_folder_name, 'Label')
+        os.makedirs(save_dir, exist_ok=True)
+        out_csv = os.path.join(save_dir, 'RGB_lmk.csv')
+
         cap = cv2.VideoCapture(video_path)
-        Num = cap.get(7)
-        Num = int(Num)
-        # 读取 time
-        # 计算lmk
-        # 计算lmk
+        if not cap.isOpened():
+            print('  Skip (cannot open video):', video_path)
+            continue
+
         lmk = []
-        while (cap.isOpened()):
+        while cap.isOpened():
             ret, frame = cap.read()
-            if ret:
-                preds = fa.get_landmarks(frame)
-                if preds is None:
-                    lmk.append([0 for _ in range(136)])
-                else:
-                    preds = preds[0]
-                    lmk.append(preds.reshape(136))
-            else:
+            if not ret:
                 break
-        with open(os.path.join(save_path, 'RGB_lmk.csv'), 'w', newline='') as csvfile:
+            preds = fa.get_landmarks(frame)
+            if preds is None:
+                lmk.append([0 for _ in range(136)])
+            else:
+                preds = preds[0]
+                lmk.append(preds.reshape(136))
+        cap.release()
+
+        with open(out_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             for row in lmk:
                 writer.writerow(row)
-        print(now_path)
-        cap.release()
-
+        print('  ->', out_csv)
 
 # %%
-for subfile_p in file_list_p[11:]:
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
-        continue
-    file_list = os.listdir(now_path_p)
-    for subfile in file_list:
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
-            continue
-        avi_name = get_file(now_path, 'avi')
-        if not avi_name:
-            print('  Skip (no .avi in):', now_path)
-            continue
-        print(z)
-        z = z + 1
-        video_path = os.path.join(now_path, avi_name)
-        print('video_path')
-        print(video_path)
-        save_path = os.path.join(now_path, 'Label')
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-        # 读取 video
-        cap = cv2.VideoCapture(video_path)
-        Num = cap.get(7)
-        Num = int(Num)
-        # 读取 time
-        # 计算lmk
-        # 计算lmk
-        lmk = []
-        while (cap.isOpened()):
-            ret, frame = cap.read()
-            if ret:
-                preds = fa.get_landmarks(frame)
-                if preds is None:
-                    lmk.append([0 for _ in range(136)])
-                else:
-                    preds = preds[0]
-                    lmk.append(preds.reshape(136))
-            else:
-                break
-        with open(os.path.join(save_path, 'RGB_lmk.csv'), 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            for row in lmk:
-                writer.writerow(row)
-        print(now_path)
-        cap.release()
-
-
