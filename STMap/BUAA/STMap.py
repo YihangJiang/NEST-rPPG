@@ -1,12 +1,15 @@
+# %%
+"""STMap generation for BUAA. Run cells in order in Jupyter or VS Code."""
 import sys
 import re
 import os
 import shutil
 import scipy.io as io
+# %%
 import xlrd
 import math
+# %%
 import csv
-import cv2
 import numpy as np
 from math import *
 from scipy import signal
@@ -14,7 +17,20 @@ import scipy.io as scio
 from scipy import interpolate
 from scipy import signal
 
+# %%
+import cv2
+# %%
+# Config: set paths for your environment (edit and run this cell first)
+fileRoot = '/mnt/nvme2/rppg_data/BUAA'  # input: each subfolder has Align/ and Label/RGB_lmk.csv
+if '__file__' in dir():
+    _STMap_script_dir = os.path.dirname(os.path.abspath(__file__))
+    _NEST_rPPG_dir = os.path.normpath(os.path.join(_STMap_script_dir, '..', '..', 'NEST-rPPG'))
+else:
+    _NEST_rPPG_dir = os.getcwd()  # Jupyter: set to NEST-rPPG folder if needed
+saveRoot = os.path.join(_NEST_rPPG_dir, 'STMap_my')  # output: STMaps saved as saveRoot/<subfile>/STMap_RGB.png
+STMap_name = 'STMap_RGB.png'
 
+# %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):
     valuex = np.array(valuex)
     valuey = np.array(valuey)
@@ -81,91 +97,10 @@ def getValue(img, lmk=[], type = 1, lmk_type=2, channels='YUV'):
     return np.array(Value)
 
 
-def choose_windows(name='Hamming', N=20):
-    # Rect/Hanning/Hamming
-    if name == 'Hamming':
-        window = np.array([0.54 - 0.46 * np.cos(2 * np.pi * n / (N - 1)) for n in range(N)])
-    elif name == 'Hanning':
-        window = np.array([0.5 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) for n in range(N)])
-    elif name == 'Rect':
-        window = np.ones(N)
-    return window
-
-
-def CHROM(STMap_CSI):
-    LPF = 0.7  # low cutoff frequency(Hz) - specified as 40bpm(~0.667Hz) in reference
-    HPF = 2.5  # high cutoff frequency(Hz) - specified as 240bpm(~4.0Hz) in reference
-    WinSec = 1.6  # (was a 48 frame window with 30 fps camera)
-    NyquistF = 15  # 30fps
-    FS = 30 # 30fps
-    FN = STMap_CSI.shape[0]
-    B, A = signal.butter(3, [LPF/NyquistF, HPF/NyquistF], 'bandpass')
-    WinL = int(WinSec * FS)
-    if (WinL % 2):  # force even window size for overlap, add of hanning windowed signals
-        WinL = WinL + 1
-    if WinL <= 18:
-        WinL = 20
-    NWin = int((FN - WinL / 2) / (WinL / 2))
-    S = np.zeros(FN)
-    WinS = 0  # Window Start Index
-    WinM = WinS + WinL / 2  # Window Middle Index
-    WinE = WinS + WinL   # Window End Index
-    #T = np.linspace(0, FN, FN)
-    BGRNorm = np.zeros((WinL, 3))
-    for i in range(NWin):
-        #TWin = T[WinS:WinE, :]
-        for j in range(3):
-            BGRBase = np.nanmean(STMap_CSI[WinS:WinE, j])
-            BGRNorm[:, j] = STMap_CSI[WinS:WinE, j]/(BGRBase+0.0001) - 1
-        Xs = 3*BGRNorm[:, 2] - 2*BGRNorm[:, 1]  # 3Rn-2Gn
-        Ys = 1.5*BGRNorm[:, 2] + BGRNorm[:, 1] - 1.5*BGRNorm[:, 0]  # 1.5Rn+Gn-1.5Bn
-
-        Xf = signal.filtfilt(B, A, np.squeeze(Xs))
-        Yf = signal.filtfilt(B, A, np.squeeze(Ys))
-
-        Alpha = np.nanstd(Xf)/np.nanstd(Yf)
-        SWin = Xf - Alpha*Yf
-        SWin = choose_windows(name='Hanning', N=WinL)*SWin
-        if i == 0:
-            S[WinS:WinE] = SWin
-            #TX[WinS:WinE] = TWin
-        else:
-            S[WinS: WinM - 1] = S[WinS: WinM - 1] + SWin[0: int(WinL/2) - 1]
-            S[WinM: WinE] = SWin[int(WinL/2):]
-            #TX[WinM: WinE] = TWin[WinL/2 + 1:]
-        WinS = int(WinM)
-        WinM = int(WinS + WinL / 2)
-        WinE = int(WinS + WinL)
-    return S
-
-
-def POS(STMap_CSI):
-    LPF = 0.7  # low cutoff frequency(Hz) - specified as 40bpm(~0.667Hz) in reference
-    HPF = 2.5  # high cutoff frequency(Hz) - specified as 240bpm(~4.0Hz) in reference
-    WinSec = 1.6  # (was a 48 frame window with 30 fps camera)
-    NyquistF = 15  # 30fps
-    FS = 30  # 30fps
-    N = STMap_CSI.shape[0]
-    l = int(WinSec * FS)
-    H = np.zeros(N)
-    Cn = np.zeros((3, l))
-    P = np.array([[0, 1, -1], [-2, 1, 1]])
-    for n in range(N-1):
-        m = n - l
-        if m >= 0:
-            Cn[0, :] = STMap_CSI[m:n, 2]/np.nanmean(STMap_CSI[m:n, 2])
-            Cn[1, :] = STMap_CSI[m:n, 1]/np.nanmean(STMap_CSI[m:n, 1])
-            Cn[2, :] = STMap_CSI[m:n, 0]/np.nanmean(STMap_CSI[m:n, 0])
-            S = np.dot(P, Cn)
-            h = S[0, :] + ((np.nanstd(S[0, :])/np.nanstd(S[1, :]))*S[1, :])
-            H[m: n] = H[m: n] + (h - np.nanmean(h))
-    return H
-
-
 def mySTMap(imglist_root, lmk_all=[]):
     # b, a = signal.butter(5, 0.12 / (30 / 2), 'highpass')
     # b, a = signal.butter(5, [0.5 / (30 / 2), 3 / (30 / 2)], 'bandpass')
-    img_list = os.listdir(imglist_root)
+    img_list = sorted(os.listdir(imglist_root))
     z = 0
     STMap = []
     for imgPath_sub in img_list:
@@ -177,9 +112,6 @@ def mySTMap(imglist_root, lmk_all=[]):
         STMap.append(Value)
         z = z + 1
     STMap = np.array(STMap)
-    # # CHROM
-    # for w in range(STMap.shape[1]):
-    #     STMap_CSI[:, w, 0] = np.squeeze(POS(STMap_CSI[:, w, :]))
     # Normal
     for c in range(STMap.shape[2]):
         for w in range(STMap.shape[1]):
@@ -190,40 +122,43 @@ def mySTMap(imglist_root, lmk_all=[]):
     STMap = np.array(STMap, dtype='uint8')
     return STMap
 
-def get_file(dir_path, file_type):
-    for subfile in os.listdir(dir_path):
-        if subfile.endswith(file_type):
-            return subfile
-    print(subfile)
-    print('*************')
-    return 0
 
-
-if __name__ == '__main__':
-
-    fileRoot = '/home/haolu/Data/BUAA/'
-    STMap_name = 'STMap_RGB.png'
-    file_list = os.listdir(fileRoot)
-    z = 0
-
-    Pic_num = []
-    for subfile in file_list:
-        print(z)
-        z = z + 1
-        now_path = os.path.join(fileRoot, subfile)
-        lmk_path = os.path.join(now_path, 'Label/RGB_lmk.csv')
-        # RGB_path = os.path.join(now_path, 'video.avi')
+# %%
+# Run STMap generation (run this cell after config; uses fileRoot, saveRoot, STMap_name from config cell)
+# Path layout: fileRoot/Subject/(LuxFolder)/Label/RGB_lmk.csv and .../Align/
+if not os.path.isdir(fileRoot):
+    raise FileNotFoundError('fileRoot not found: ' + fileRoot)
+os.makedirs(saveRoot, exist_ok=True)
+file_list_p = sorted(os.listdir(fileRoot))
+z = 0
+for subfile_p in file_list_p:
+    now_path_p = os.path.join(fileRoot, subfile_p)
+    if not os.path.isdir(now_path_p):
+        continue
+    for subfile in sorted(os.listdir(now_path_p)):
+        now_path = os.path.join(now_path_p, subfile)
+        if not os.path.isdir(now_path):
+            continue
+        print(z, subfile_p, subfile)
+        lmk_path = os.path.join(now_path, 'Label', 'RGB_lmk.csv')
         RGB_path = os.path.join(now_path, 'Align')
-        STMap_path = os.path.join(now_path, 'STMap')
-        if not os.path.exists(STMap_path):
-            os.makedirs(STMap_path)
-        # 读取lmk
+        STMap_path = os.path.join(saveRoot, subfile)
+        if not os.path.exists(lmk_path):
+            print('  Skip (no landmarks):', lmk_path)
+            continue
+        if not os.path.exists(RGB_path):
+            print('  Skip (no Align folder):', RGB_path)
+            continue
+        os.makedirs(STMap_path, exist_ok=True)
         lmk_all = []
-        with open(os.path.join(lmk_path), "r") as csvfile:
+        with open(lmk_path, "r") as csvfile:
             reader = csv.reader(csvfile)
             for line in reader:
                 lmk_all.append(line)
-
         STMap = mySTMap(RGB_path, lmk_all=lmk_all)
-        cv2.imwrite(os.path.join(STMap_path, STMap_name), STMap, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
-        print(subfile)
+        out_path = os.path.join(STMap_path, STMap_name)
+        cv2.imwrite(out_path, STMap, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        print('  ->', out_path)
+        z += 1
+
+# %%

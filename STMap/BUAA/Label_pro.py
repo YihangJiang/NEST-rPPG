@@ -1,3 +1,4 @@
+# %%
 import cv2
 import os
 import numpy as np
@@ -19,7 +20,7 @@ FS = 30  # 30fps
 B, A = signal.butter(3, [LPF / NyquistF, HPF / NyquistF], 'bandpass')
 z = 0
 
-fileRoot = '/home/haolu/Data/BUAA/'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA'
 file_list_p = os.listdir(fileRoot)
 for subfile_p in file_list_p:
     now_path_p = os.path.join(fileRoot, subfile_p)

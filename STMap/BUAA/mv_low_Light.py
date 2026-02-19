@@ -1,8 +1,8 @@
+# %%
 import cv2
 import os
 import numpy as np
 import shutil
-import face_alignment
 import pandas as pd
 import json
 import scipy.io as scio
@@ -21,8 +21,8 @@ def get_file(dir_path, file_type):
 # 功能： lmk for UBFC
 # 注释： 1.大约有5个文件时间对不齐需要删除  2.有的检测不到lmk
 
-fileRoot = '/home/haolu/Data/BUAA/'
-newRoot = '/home/haolu/Data/BUAA_low_Light/'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA'
+newRoot = '/mnt/nvme2/rppg_data/BUAA_low_light/'
 file_list_p = os.listdir(fileRoot)
 z = 0
 for subfile_p in file_list_p:
@@ -32,10 +32,12 @@ for subfile_p in file_list_p:
         if subfile in ['lux 1.0', 'lux 1.6', 'lux 2.5', 'lux 4.0', 'lux 6.3']:
             print(subfile)
             now_path = os.path.join(now_path_p, subfile)
-            if not os.path.exists(os.path.join(newRoot, subfile_p)):
-                os.mkdir(os.path.join(newRoot, subfile_p))
-            new_path = os.path.join(newRoot, os.path.join(subfile_p, subfile))
-
+            print(now_path)
+            new_path = os.path.join(newRoot, subfile_p, subfile)
+            if os.path.exists(new_path):
+                print('  Skip (exists):', new_path)
+                continue
+            os.makedirs(os.path.join(newRoot, subfile_p), exist_ok=True)
             shutil.copytree(now_path, new_path)
             shutil.rmtree(now_path)
 
@@ -75,3 +77,5 @@ for subfile_p in file_list_p:
         # cap.release()
 
 
+
+# %%
