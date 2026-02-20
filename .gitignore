@@ -20,6 +20,9 @@ NEST-rPPG/STMap/STMap_Index/
 NEST-rPPG/STMap/
 STMap/
 
+# STMap_my dataset (BUAA_my, UBFC_my - generated align/label/STMap)
+STMap_my/
+
 # Terminal state (Cursor / IDE)
 terminals/
 
