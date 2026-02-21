@@ -12,8 +12,8 @@ import os
 import sys
 import csv
 # %%
-import face_alignment
 import cv2
+import face_alignment
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io as scio

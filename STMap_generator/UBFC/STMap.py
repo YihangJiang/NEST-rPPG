@@ -1,34 +1,18 @@
 # %%
-"""STMap generation for BUAA. Run cells in order in Jupyter or VS Code."""
-import sys
-import re
+"""STMap generation for UBFC. Run cells in order in Jupyter or VS Code."""
 import os
-import shutil
-import scipy.io as io
-# %%
-import xlrd
 import math
-# %%
 import csv
+import cv2
 import numpy as np
 from math import *
-from scipy import signal
-import scipy.io as scio
-from scipy import interpolate
-from scipy import signal
 
 # %%
-import cv2
-# %%
 # Config: set paths for your environment (edit and run this cell first)
-fileRoot = '/mnt/nvme2/rppg_data/BUAA'  # input: each subfolder has Align/ and Label/RGB_lmk.csv
-if '__file__' in dir():
-    _STMap_script_dir = os.path.dirname(os.path.abspath(__file__))
-    _NEST_rPPG_dir = os.path.normpath(os.path.join(_STMap_script_dir, '..', '..', 'NEST-rPPG'))
-else:
-    _NEST_rPPG_dir = os.getcwd()  # Jupyter: set to NEST-rPPG folder if needed
-saveRoot = os.path.join(_NEST_rPPG_dir, 'STMap_my')  # output: STMaps saved as saveRoot/<subfile>/STMap_RGB.png
 STMap_name = 'STMap_RGB.png'
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..'))
+UBFC_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'UBFC_my')
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):
@@ -39,13 +23,12 @@ def PointRotate(angle, valuex, valuey, pointx, pointy):
     return Rotatex, Rotatey
 
 
-def getValue(img, lmk=[], type = 1, lmk_type=2, channels='YUV'):
+def getValue(img, lmk=[], type = 1, lmk_type=2, channels='BGR'):
     Value = []
     # 1.三点对齐 2.两点对齐
     # 1.81点 2.68 点
     h, w, c = img.shape
-    # if channels == 'YUV':
-    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    # Currently using BGR (no conversion)
     if type == 1:
         w_step = int(w / 5)
         h_step = int(h / 5)
@@ -84,8 +67,6 @@ def getValue(img, lmk=[], type = 1, lmk_type=2, channels='YUV'):
         right[0], right[1] = PointRotate(math.radians(rotate_angular), right[0], right[1], cent_point[0], cent_point[1])
         # 截取
         face_crop = face_rotate[int(top):int(max_p[1]), int(left[0]):int(right[0]), :]
-        # cv2.imshow('a', face_crop)
-        # cv2.waitKey(0)
         h, w, c = face_crop.shape
         w_step = int(w / 5)
         h_step = int(h / 5)
@@ -98,15 +79,30 @@ def getValue(img, lmk=[], type = 1, lmk_type=2, channels='YUV'):
 
 
 def mySTMap(imglist_root, lmk_all=[]):
-    # b, a = signal.butter(5, 0.12 / (30 / 2), 'highpass')
-    # b, a = signal.butter(5, [0.5 / (30 / 2), 3 / (30 / 2)], 'bandpass')
-    img_list = sorted(os.listdir(imglist_root))
+    # Only use pre-aligned frames (10000.png, 10001.png, ...) from Align_Face_UBFC.py
+    # Exclude old raw frames (00000.png, 00001.png, ...) from Align_UBFC.py
+    all_files = os.listdir(imglist_root)
+    img_list = []
+    for f in all_files:
+        if f.endswith('.png'):
+            name_no_ext = f[:-4]  # remove .png
+            # Only include files >= 10000 (pre-aligned from Align_Face_UBFC.py)
+            try:
+                frame_num = int(name_no_ext)
+                if frame_num >= 10000:
+                    img_list.append(f)
+            except ValueError:
+                continue  # Skip non-numeric filenames
+    img_list = sorted(img_list)  # Sort numerically by filename
+    
     z = 0
     STMap = []
     for imgPath_sub in img_list:
         now_path = os.path.join(imglist_root, imgPath_sub)
         img = cv2.imread(now_path)
-        Value = getValue(img, lmk=lmk_all[z])
+        # Use type=1 (simple 5x5 grid) since images are already pre-aligned 128x128 crops (same as BUAA)
+        # Landmarks are passed but not used when type=1 (kept for consistency with BUAA)
+        Value = getValue(img, lmk=lmk_all[z] if z < len(lmk_all) else [], type=1)
         if np.isnan(Value).any():
             Value[:, :] = 100
         STMap.append(Value)
@@ -124,38 +120,47 @@ def mySTMap(imglist_root, lmk_all=[]):
 
 
 # %%
-# Run STMap generation (run this cell after config; uses fileRoot, saveRoot, STMap_name from config cell)
-# Path layout: fileRoot/Subject/(LuxFolder)/Label/RGB_lmk.csv and .../Align/
-if not os.path.isdir(fileRoot):
-    raise FileNotFoundError('fileRoot not found: ' + fileRoot)
-os.makedirs(saveRoot, exist_ok=True)
-file_list_p = sorted(os.listdir(fileRoot))
-z = 0
-for subfile_p in file_list_p:
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
-        continue
-    for subfile in sorted(os.listdir(now_path_p)):
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
+# Run STMap generation: read Align + Label from UBFC_my, write STMap to UBFC_my
+if not os.path.isdir(UBFC_MY_ROOT):
+    print(f"UBFC_my root not found: {UBFC_MY_ROOT}")
+else:
+    z = 0
+    for sub_name in sorted(os.listdir(UBFC_MY_ROOT)):
+        if sub_name.startswith('.'):  # Skip hidden/system files like .DS_Store
             continue
-        print(z, subfile_p, subfile)
-        lmk_path = os.path.join(now_path, 'Label', 'RGB_lmk.csv')
-        RGB_path = os.path.join(now_path, 'Align')
-        STMap_path = os.path.join(saveRoot, subfile)
+        subject_path = os.path.join(UBFC_MY_ROOT, sub_name)
+        if not os.path.isdir(subject_path):
+            continue
+        
+        lmk_path = os.path.join(subject_path, 'Label', 'RGB_lmk.csv')
+        RGB_path = os.path.join(subject_path, 'Align')
+        STMap_path = os.path.join(subject_path, 'STMap')
+        
         if not os.path.exists(lmk_path):
             print('  Skip (no landmarks):', lmk_path)
             continue
         if not os.path.exists(RGB_path):
             print('  Skip (no Align folder):', RGB_path)
             continue
+        
         os.makedirs(STMap_path, exist_ok=True)
+        print(z, sub_name)
+        
+        # Load landmarks (one row per frame)
         lmk_all = []
         with open(lmk_path, "r") as csvfile:
             reader = csv.reader(csvfile)
             for line in reader:
                 lmk_all.append(line)
+        
+        # Build STMap from Align frames and landmarks
+        # Note: mySTMap filters for files >= 10000 and uses type=1 (simple grid on pre-aligned crops)
         STMap = mySTMap(RGB_path, lmk_all=lmk_all)
+        
+        # Warn if frame count mismatch (should match if Align_Face_UBFC.py processed all frames)
+        n_align_frames = len([f for f in os.listdir(RGB_path) if f.endswith('.png') and f[:-4].isdigit() and int(f[:-4]) >= 10000])
+        if n_align_frames != len(lmk_all):
+            print(f'  Warning: Align frames ({n_align_frames}) != landmark rows ({len(lmk_all)})')
         out_path = os.path.join(STMap_path, STMap_name)
         cv2.imwrite(out_path, STMap, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         print('  ->', out_path)

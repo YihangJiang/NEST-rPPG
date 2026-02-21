@@ -17,7 +17,7 @@ if '__file__' in dir():
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 else:
     SCRIPT_DIR = os.getcwd()  # Jupyter: set this to NEST-rPPG folder if needed
-BUAA_MY_DIR = os.path.join(SCRIPT_DIR, 'BUAA_my')
+BUAA_MY_DIR = os.path.join(SCRIPT_DIR, 'STMap_my', 'BUAA_my')
 LABEL_DIR = os.path.join(SCRIPT_DIR, 'Label')
 STMAP_NAME = 'STMap_RGB.png'
 # None = use all frames; set to int (e.g. 500) for a shorter run

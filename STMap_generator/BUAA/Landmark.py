@@ -23,9 +23,9 @@ fileRoot = '/mnt/nvme2/rppg_data/BUAA'
 # Preprocessing output root: BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
 if '__file__' in dir():
     _script_dir = os.path.dirname(os.path.abspath(__file__))
-    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'BUAA_my'))
+    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my'))
 else:
-    saveRoot = os.path.join(os.getcwd(), 'BUAA_my')
+    saveRoot = os.path.join(os.getcwd(), 'STMap_my', 'BUAA_my')
 
 fa = face_alignment.FaceAlignment(
     face_alignment.LandmarksType.TWO_D,
@@ -38,11 +38,15 @@ fa = face_alignment.FaceAlignment(
 #   BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
 idx = 0
 for sub_name in sorted(os.listdir(fileRoot)):
+    if sub_name.startswith('.'):  # Skip hidden/system files like .DS_Store
+        continue
     subj_dir = os.path.join(fileRoot, sub_name)
     if not os.path.isdir(subj_dir):
         continue
 
     for lux_name in sorted(os.listdir(subj_dir)):
+        if lux_name.startswith('.'):  # Skip hidden/system files like .DS_Store
+            continue
         lux_dir = os.path.join(subj_dir, lux_name)
         if not os.path.isdir(lux_dir):
             continue

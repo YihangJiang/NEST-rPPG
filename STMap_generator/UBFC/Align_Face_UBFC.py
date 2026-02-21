@@ -1,5 +1,5 @@
 # %%
-"""Align face from video using landmarks; save cropped 128x128 frames to Align/ and masks to Mask/."""
+"""Align face from UBFC video using landmarks; save cropped 128x128 frames to Align/ and masks to Mask/."""
 import os
 import csv
 import cv2
@@ -7,7 +7,14 @@ import numpy as np
 
 # %%
 # Config
-fileRoot = '/mnt/nvme2/rppg_data/BUAA'
+UBFC_RAW_ROOT = '/mnt/nvme2/rppg_data/DATASET_2'
+
+# Base folder in this repo where aligned PNGs will be saved,
+# e.g. STMap_my/UBFC_my/subject1/Align/xxxxx.png
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..'))
+UBFC_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'UBFC_my')
+
 OUTPUT_SIZE = 128
 FRAME_NAME_START = 10000  # first frame saved as 10000.png, 10001.png, ...
 
@@ -40,7 +47,7 @@ def lmk_roi_points(lmk, indices):
     return np.round(pts).astype(np.int32).reshape(-1, 1, 2)
 
 
-def process_video(now_path, video_path, lmk_path, align_path, mask_path):
+def process_video(video_path, lmk_path, align_path, mask_path):
     """Read video and landmarks; write aligned face crops and masks per frame."""
     os.makedirs(align_path, exist_ok=True)
     os.makedirs(mask_path, exist_ok=True)
@@ -72,14 +79,15 @@ def process_video(now_path, video_path, lmk_path, align_path, mask_path):
             cv2.fillPoly(mask, [lmk_roi_points(lmk, indices)], (0, 0, 0))
         img_masked = cv2.bitwise_and(img, mask)
 
-        # Affine warp: 3-point alignment
+        # Affine warp: 3-point alignment (same as BUAA)
         old_pts = lmk[AFFINE_SRC_INDICES, :].astype(np.float32)
         M = cv2.getAffineTransform(old_pts, AFFINE_DST)
         out_size = (max(w, 128), max(h, 128))
         face_align = cv2.warpAffine(img, M, out_size)
         face_align = face_align[0:OUTPUT_SIZE, 0:OUTPUT_SIZE, :]
 
-        cv2.imwrite(os.path.join(align_path, f'{z}.png'), face_align)
+        out_name = f'{z}.png'
+        cv2.imwrite(os.path.join(align_path, out_name), face_align)
         cv2.imwrite(os.path.join(mask_path, f'{z}.png'), mask)  # full-frame mask
         z += 1
 
@@ -88,26 +96,41 @@ def process_video(now_path, video_path, lmk_path, align_path, mask_path):
 
 
 # %%
-# Run over all subject folders under fileRoot
-for subfile_p in sorted(os.listdir(fileRoot)):
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
-        continue
-    for subfile in sorted(os.listdir(now_path_p)):
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
+# Run over all subject folders under UBFC_RAW_ROOT
+if not os.path.isdir(UBFC_RAW_ROOT):
+    print(f"UBFC raw root not found: {UBFC_RAW_ROOT}")
+else:
+    os.makedirs(UBFC_MY_ROOT, exist_ok=True)
+    
+    for sub_name in sorted(os.listdir(UBFC_RAW_ROOT)):
+        if sub_name.startswith('.'):  # Skip hidden/system files like .DS_Store
             continue
-        avi_name = get_file(now_path, 'avi')
-        if not avi_name:
+        raw_subject_path = os.path.join(UBFC_RAW_ROOT, sub_name)
+        if not os.path.isdir(raw_subject_path):
             continue
-        video_path = os.path.join(now_path, avi_name)
-        lmk_path = os.path.join(now_path, 'Label', 'RGB_lmk.csv')
+        
+        # Find video (.avi/.mp4/.mov)
+        video_path = None
+        for ext in ('.avi', '.mp4', '.mov'):
+            f = get_file(raw_subject_path, ext)
+            if f:
+                video_path = os.path.join(raw_subject_path, f)
+                break
+        if not video_path:
+            print('  Skip (no video):', raw_subject_path)
+            continue
+        
+        # Landmarks are in UBFC_my (e.g. subject1/Label/RGB_lmk.csv)
+        lmk_path = os.path.join(UBFC_MY_ROOT, sub_name, 'Label', 'RGB_lmk.csv')
         if not os.path.isfile(lmk_path):
-            print('  Skip (no Label/RGB_lmk.csv):', now_path)
+            print('  Skip (no Label/RGB_lmk.csv in UBFC_my):', lmk_path)
             continue
-        align_path = os.path.join(now_path, 'Align')
-        mask_path = os.path.join(now_path, 'Mask')
-        print(now_path)
-        process_video(now_path, video_path, lmk_path, align_path, mask_path)
+        
+        # Output paths: STMap_my/UBFC_my/<subject>/Align/ and Mask/
+        align_path = os.path.join(UBFC_MY_ROOT, sub_name, 'Align')
+        mask_path = os.path.join(UBFC_MY_ROOT, sub_name, 'Mask')
+
+        print(sub_name, '->', align_path)
+        process_video(video_path, lmk_path, align_path, mask_path)
 
 # %%

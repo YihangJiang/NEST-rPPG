@@ -240,33 +240,40 @@ def get_file(dir_path, file_type):
 # Config (edit and run this cell first)
 UBFC_RAW_ROOT = '/mnt/nvme2/rppg_data/DATASET_2'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-STMAP_OUTPUT_ROOT = os.path.join(_script_dir, 'NEST-rPPG', 'STMap', 'UBFC')
-STMap_name = 'STMap_test.png'
+# Output: STMap_my/UBFC_my/<subject>/ (Label/, Align/, STMap/)
+UBFC_MY_ROOT = os.path.join(_script_dir, 'STMap_my', 'UBFC_my')
+STMAP_OUTPUT_ROOT = UBFC_MY_ROOT
+STMap_name = 'STMap_RGB.png'  # match BUAA naming; use 'STMap.png' for NEST-rPPG training if needed
 # Process only this subject, or None to process all subjects
 START_SUBJECT = 'subject1'
 
 # %%
 # Build subject list (sorted); when START_SUBJECT is set, process only that subject (e.g. subject1)
-_all_dirs = sorted([d for d in os.listdir(UBFC_RAW_ROOT) if os.path.isdir(os.path.join(UBFC_RAW_ROOT, d))])
-if START_SUBJECT is not None:
-    if START_SUBJECT in _all_dirs:
-        file_list = [START_SUBJECT]
-    else:
-        idx = next((i for i, d in enumerate(_all_dirs) if d == START_SUBJECT), 0)
-        file_list = _all_dirs[idx:]
+if not os.path.isdir(UBFC_RAW_ROOT):
+    print(f"UBFC raw root not found: {UBFC_RAW_ROOT}")
+    file_list = []
 else:
-    file_list = _all_dirs
+    _all_dirs = sorted([d for d in os.listdir(UBFC_RAW_ROOT) if not d.startswith('.') and os.path.isdir(os.path.join(UBFC_RAW_ROOT, d))])
+    if START_SUBJECT is not None:
+        if START_SUBJECT in _all_dirs:
+            file_list = [START_SUBJECT]
+        else:
+            idx = next((i for i, d in enumerate(_all_dirs) if d == START_SUBJECT), 0)
+            file_list = _all_dirs[idx:]
+    else:
+        file_list = _all_dirs
 print('Subjects to process:', file_list[:10] if len(file_list) > 10 else file_list, f'... ({len(file_list)} total)')
 
 # %%
 # Run STMap generation (run this cell after the config and list cells)
-# Preprocess: find .avi in raw subject folder, extract frames to Align/, then build STMap.
-# Landmarks: NEST-rPPG/STMap/UBFC/<subject>/Label/RGB_lmk.csv (one row per frame).
+# Landmarks: STMap_my/UBFC_my/<subject>/Label/RGB_lmk.csv
+# Align and STMap written to STMap_my/UBFC_my/<subject>/Align and .../STMap
 for z, subfile in enumerate(file_list):
     print(z, subfile)
     raw_subject_path = os.path.join(UBFC_RAW_ROOT, subfile)
     lmk_path = os.path.join(STMAP_OUTPUT_ROOT, subfile, 'Label', 'RGB_lmk.csv')
     STMap_path = os.path.join(STMAP_OUTPUT_ROOT, subfile, 'STMap')
+    align_folder = os.path.join(STMAP_OUTPUT_ROOT, subfile, 'Align')
     if not os.path.exists(STMap_path):
         os.makedirs(STMap_path)
     if not os.path.isfile(lmk_path):
@@ -284,8 +291,8 @@ for z, subfile in enumerate(file_list):
     if video_path is None:
         print('  Skip (no video .avi/.mp4 in):', raw_subject_path)
         continue
-    # Extract frames to Align folder (preprocess video -> frames)
-    align_folder = os.path.join(raw_subject_path, 'Align')
+    # Extract frames to UBFC_my/<subject>/Align (not into raw data)
+    os.makedirs(align_folder, exist_ok=True)
     n_frames = extract_frames_to_folder(video_path, align_folder, max_frames=n_landmarks)
     if n_frames == 0:
         print('  Skip (no frames extracted):', video_path)

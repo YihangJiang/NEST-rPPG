@@ -26,6 +26,10 @@ STMap_my/
 # Terminal state (Cursor / IDE)
 terminals/
 
+# Analysis output figures (do not commit)
+analysis/buaa_figures/
+analysis/ubfc_figures/
+
 # Video and data files
 *.avi
 *.mat
