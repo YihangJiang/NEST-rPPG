@@ -182,7 +182,8 @@ def visualize_mat_waves(
     pairs_raw: List[dict] = []  # list of {"subject_id", "segment", "gt", "pred"}
     vis_root = os.path.join(save_path, "vis") if vis_run_name is not None else None
 
-    for sid in subject_ids:
+    # Progress bar over subjects
+    for sid in tqdm(subject_ids, desc="Visualizing subjects"):
         gt_mat = scio.loadmat(os.path.join(save_path, gt_by_id[sid]))
         pr_mat = scio.loadmat(os.path.join(save_path, pr_by_id[sid]))
         Wave_gt = np.squeeze(gt_mat["Wave"])
