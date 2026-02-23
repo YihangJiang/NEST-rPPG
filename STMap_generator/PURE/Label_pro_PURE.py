@@ -1,12 +1,15 @@
 # %%
 """
-Generate Label folder for PURE_my: Timestamp.mat, HR.mat, SPO2.mat, BVP.mat, BVP_Filt.mat.
-- Reads session JSON from DATASET_3 (e.g. /mnt/nvme2/rppg_data/DATASET_3/01-01/01-01.json)
-  with /FullPackage[]: Timestamp, Value.pulseRate (HR), Value.o2saturation (SPO2), Value.waveform (BVP).
-- Aligns to video frame timestamps (from DATASET_3/01-01/01-01/Image<ts>.png filenames).
-- BVP/BVP_Filt preprocessing matches BUAA_my/UBFC_my: interpolate to frame times, normalize;
-  BVP_Filt = butter bandpass (0.7–2.5 Hz, 30 Hz Nyquist) then normalize.
-Run after Landmark_PURE.py (so PURE_my/<sub>/Label/RGB_lmk.csv exists and defines frame count).
+Generate the same Label files as NEST-rPPG/STMap/PURE/<session>/Label in PURE_my,
+using only DATASET_3 (no copy from PURE).
+
+Output: PURE_my/<session>/Label/Timestamp.mat, HR.mat, SPO2.mat, BVP.mat, BVP_Filt.mat.
+Source: DATASET_3 (e.g. /mnt/nvme2/DATASET_3/<session>/<session>.json and .../<session>/Image<ts>.png).
+- JSON /FullPackage[]: Timestamp, Value.pulseRate (HR), Value.o2saturation (SPO2), Value.waveform (BVP).
+- Frame timestamps from PNG filenames; signals interpolated to frame times.
+- BVP/BVP_Filt: normalize to [0,1]; BVP_Filt = butter bandpass (0.7–2.5 Hz) then normalize.
+
+Run after Landmark_PURE.py (PURE_my/<sub>/Label/RGB_lmk.csv must exist for frame count).
 """
 import os
 import re
@@ -24,26 +27,67 @@ NyquistF = 15
 FS = 30
 B, A = signal.butter(3, [LPF / NyquistF, HPF / NyquistF], 'bandpass')
 
+# Raw PURE dataset (DATASET_3); override if your path differs
 DATASET_3_ROOT = '/mnt/nvme2/rppg_data/DATASET_3'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..'))
 PURE_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'PURE_my')
 
 # %%
+def _list_session_structure(session_path, max_entries=50):
+    """Print directory structure under session_path for debugging."""
+    if not os.path.isdir(session_path):
+        return f"  [not a dir] {session_path}"
+    lines = []
+    for entry in sorted(os.listdir(session_path))[:max_entries]:
+        full = os.path.join(session_path, entry)
+        if os.path.isdir(full):
+            nfiles = len([f for f in os.listdir(full) if f.endswith('.png')])
+            lines.append(f"  {entry}/ ({nfiles} .png)")
+        else:
+            lines.append(f"  {entry}")
+    if len(os.listdir(session_path)) > max_entries:
+        lines.append(f"  ... ({len(os.listdir(session_path))} total)")
+    return "\n".join(lines) if lines else "  (empty)"
+
+
 def get_frame_timestamps_from_png(session_path):
-    """Get sorted frame timestamps from DATASET_3 session PNG filenames Image<ts>.png."""
+    """Get sorted frame timestamps from DATASET_3 session PNG filenames.
+    Tries: Image<ts>.png (PURE standard), then <digits>.png, in <session>/<session>/,
+    then <session>/, then any subdir under <session>.
+    """
     session_name = os.path.basename(session_path.rstrip(os.sep))
-    frames_dir = os.path.join(session_path, session_name)
-    if not os.path.isdir(frames_dir):
-        frames_dir = session_path
-    if not os.path.isdir(frames_dir):
-        return None
-    pattern = re.compile(r'Image(\d+)\.png', re.IGNORECASE)
+    patterns = [
+        (re.compile(r'Image(\d+)\.png', re.IGNORECASE), True),   # Image123456.png -> ts
+        (re.compile(r'^(\d+)\.png$'), True),                      # 000001.png -> treat as ts or order
+    ]
     timestamps = []
-    for f in os.listdir(frames_dir):
-        m = pattern.match(f)
-        if m:
-            timestamps.append(int(m.group(1)))
+
+    def collect_from_dir(d):
+        if not os.path.isdir(d):
+            return
+        for f in os.listdir(d):
+            for pat, _ in patterns:
+                m = pat.match(f)
+                if m:
+                    timestamps.append(int(m.group(1)))
+                    break
+
+    # 1) Nested folder then session root
+    for candidate_dir in [os.path.join(session_path, session_name), session_path]:
+        collect_from_dir(candidate_dir)
+        if timestamps:
+            return sorted(timestamps)
+
+    # 2) Any subdirectory
+    if os.path.isdir(session_path):
+        for entry in sorted(os.listdir(session_path)):
+            subdir = os.path.join(session_path, entry)
+            if os.path.isdir(subdir):
+                collect_from_dir(subdir)
+        if timestamps:
+            return sorted(timestamps)
+
     return sorted(timestamps) if timestamps else None
 
 
@@ -94,14 +138,11 @@ else:
             print(f"  Skip (no RGB_lmk.csv): {sub_name}")
             continue
 
-        # Frame timestamps from DATASET_3 PNGs (same session name)
-        session_path = os.path.join(DATASET_3_ROOT, sub_name)
-        frame_ts = get_frame_timestamps_from_png(session_path)
-        if frame_ts is None or len(frame_ts) == 0:
-            print(f"  Skip (no frame timestamps in DATASET_3): {sub_name}")
-            continue
+        # Frame count from landmarks
+        with open(lmk_csv) as f:
+            n_lmk = sum(1 for _ in f)
 
-        # JSON: Timestamp, HR, SPO2, waveform
+        session_path = os.path.join(DATASET_3_ROOT, sub_name)
         json_path = os.path.join(session_path, sub_name + '.json')
         signals = load_json_signals(json_path)
         if signals is None:
@@ -109,22 +150,39 @@ else:
             continue
         ts_json, hr_json, spo2_json, wave_json = signals
 
-        # Align to frame timestamps (spline interpolate)
-        frame_ts = np.array(frame_ts, dtype=np.float64)
-        HR = interpolate_to_times(ts_json, hr_json, frame_ts)
-        SPO2 = interpolate_to_times(ts_json, spo2_json, frame_ts)
-        waveform = interpolate_to_times(ts_json, wave_json, frame_ts)
+        # Frame timestamps: from PNG filenames, or fallback to JSON timestamps (first n_lmk)
+        frame_ts = get_frame_timestamps_from_png(session_path)
+        if frame_ts is None or len(frame_ts) == 0:
+            # Fallback: use JSON timestamps (first n_lmk) when no Image*.png found
+            if len(ts_json) >= n_lmk:
+                frame_ts = np.array(ts_json[:n_lmk], dtype=np.float64)
+                HR = np.array(hr_json[:n_lmk], dtype=np.float64)
+                SPO2 = np.array(spo2_json[:n_lmk], dtype=np.float64)
+                waveform = np.array(wave_json[:n_lmk], dtype=np.float64)
+                n = n_lmk
+                if sub_name == "10-06" or os.environ.get("PURE_LABEL_DEBUG"):
+                    print(f"  {sub_name}: using JSON timestamps (no PNG found). Structure:")
+                    print(_list_session_structure(session_path))
+            else:
+                print(f"  Skip (no PNG timestamps, JSON has {len(ts_json)} < n_lmk={n_lmk}): {sub_name}")
+                if sub_name == "10-06" or os.environ.get("PURE_LABEL_DEBUG"):
+                    print(f"  DATASET_3 structure for {session_path}:")
+                    print(_list_session_structure(session_path))
+                continue
+        else:
+            frame_ts = np.array(frame_ts, dtype=np.float64)
+            HR = interpolate_to_times(ts_json, hr_json, frame_ts)
+            SPO2 = interpolate_to_times(ts_json, spo2_json, frame_ts)
+            waveform = interpolate_to_times(ts_json, wave_json, frame_ts)
+            n = min(len(frame_ts), n_lmk)
+            frame_ts = frame_ts[:n]
+            HR = HR[:n]
+            SPO2 = SPO2[:n]
+            waveform = waveform[:n]
+            if len(frame_ts) != n_lmk:
+                print(f"  {sub_name}: frame_ts={len(frame_ts)}, landmark rows={n_lmk}")
 
-        # Ensure same length as RGB_lmk (in case PNG count != landmark count)
-        with open(lmk_csv) as f:
-            n_lmk = sum(1 for _ in f)
-        if len(frame_ts) != n_lmk:
-            print(f"  {sub_name}: frame_ts={len(frame_ts)}, landmark rows={n_lmk}")
-        n = min(len(frame_ts), n_lmk)
-        frame_ts = frame_ts[:n]
-        HR = HR[:n]
-        SPO2 = SPO2[:n]
-        waveform = waveform[:n]
+        n = len(frame_ts)
 
         os.makedirs(pure_my_label, exist_ok=True)
 

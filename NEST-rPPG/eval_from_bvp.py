@@ -1,6 +1,7 @@
 """
 Evaluates BVP model performance from Wave_sort .mat files (gt/pr pairs):
 heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE, MER, Pearson r.
+When run this script, use interpreter: mprppg
 """
 
 # %%
@@ -249,7 +250,7 @@ def visualize_mat_waves(
 # %%
 # Config: set path to Wave_sort directory (gt/pr .mat pairs)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-save_path = os.path.join(BASE_DIR, "Wave_sort", "PURE")
+save_path = os.path.join(BASE_DIR, "Wave_sort", "UBFC")
 
 # Name for first-level visualization subfolder under save_path/vis/.
 # Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/

@@ -29,6 +29,9 @@ terminals/
 # Analysis output figures (do not commit)
 analysis/buaa_figures/
 analysis/ubfc_figures/
+analysis/pure_figures/
+analysis/ubfc_stmap_figures/
+analysis/pure_stmap_figures/
 
 # Video and data files
 *.avi

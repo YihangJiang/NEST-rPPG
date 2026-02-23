@@ -1,4 +1,6 @@
 # %%
+import torch
+# %%
 import sys
 import re
 import os

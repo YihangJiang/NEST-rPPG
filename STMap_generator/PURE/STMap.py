@@ -23,11 +23,13 @@ def PointRotate(angle, valuex, valuey, pointx, pointy):
     return Rotatex, Rotatey
 
 
-def getValue(img, lmk=[], type=1, lmk_type=2, channels='BGR'):
+def getValue(img, lmk=[], type=1, lmk_type=2, channels='YUV'):
     Value = []
     # 1.三点对齐 2.两点对齐
     # 1.81点 2.68 点
     h, w, c = img.shape
+    # if channels == 'YUV':
+    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
     if type == 1:
         w_step = int(w / 5)
         h_step = int(h / 5)
@@ -95,7 +97,7 @@ def mySTMap(imglist_root, lmk_all=[]):
     for imgPath_sub in img_list:
         now_path = os.path.join(imglist_root, imgPath_sub)
         img = cv2.imread(now_path)
-        Value = getValue(img, lmk=lmk_all[z] if z < len(lmk_all) else [], type=1)
+        Value = getValue(img, lmk=lmk_all[z], type=1)
         if np.isnan(Value).any():
             Value[:, :] = 100
         STMap.append(Value)

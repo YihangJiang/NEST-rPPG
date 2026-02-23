@@ -309,7 +309,7 @@ for iter_num in range(max_iter + 1):
                    + ' |' + time_to_str(timer() - start, 'min')
         log.write(log_line)
         log.write('\n')
-
+# %%
 # Testing
 BaseNet.eval()
 HR_pr_temp = []
