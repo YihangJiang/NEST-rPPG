@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 import sys
 import utils
-from torchvision import models
+from torchvision.models import resnet18, ResNet18_Weights
 import numpy as np
 
 np.set_printoptions(threshold=np.inf)
@@ -45,7 +45,9 @@ class BasicBlock(nn.Module):
 class BaseNet(nn.Module):
     def __init__(self):
         super(BaseNet, self).__init__()
-        model_resnet = models.resnet18(pretrained=True)
+        # Use modern torchvision API (pretrained is deprecated):
+        # equivalent to the old pretrained=True, but without warnings.
+        model_resnet = resnet18(weights=ResNet18_Weights.DEFAULT)
         self.conv1 = model_resnet.conv1
         self.bn1 = model_resnet.bn1
         self.relu = model_resnet.relu

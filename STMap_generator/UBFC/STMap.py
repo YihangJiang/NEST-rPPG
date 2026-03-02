@@ -12,7 +12,7 @@ from math import *
 STMap_name = 'STMap_RGB.png'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..'))
-UBFC_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'UBFC_my')
+UBFC_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'UBFC_my_eye')
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):

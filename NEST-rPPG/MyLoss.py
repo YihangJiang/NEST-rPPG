@@ -215,10 +215,10 @@ def get_loss(bvp_pre, hr_pre, bvp_gt, hr_gt, dataName, \
 
     k1, k2, k3, k4, k5, k6, k7, k8 = args.k1, k*args.k2, args.k3, k*args.k4, args.k5, k*args.k6, k*args.k7, k*args.k8
     # HR loss commented out; only signal (BVP) loss is used.
-    if dataName == 'PURE':
+    if dataName == 'PURE' or dataName == 'PURE_my':
         loss = k1 * loss_sig0(bvp_pre, bvp_gt)
         # loss = (k1*loss_sig0(bvp_pre, bvp_gt) + k2*loss_hr(torch.squeeze(hr_pre), hr_gt))/2
-    elif dataName == 'UBFC':
+    elif dataName == 'UBFC' or dataName == 'UBFC_my':
         loss = k3 * loss_sig0(bvp_pre, bvp_gt)
         # loss = (k3 * loss_sig0(bvp_pre, bvp_gt) + k4 * loss_hr(torch.squeeze(hr_pre), hr_gt))/2
     elif dataName == 'BUAA':

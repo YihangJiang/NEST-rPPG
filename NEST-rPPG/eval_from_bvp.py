@@ -13,9 +13,11 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import List, Optional
 
+import config
+
 FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
-VIS_RUN_NAME = "src_loss_sum+TA"  # <-- edit this to change the subfolder name
+VIS_RUN_NAME = config.LOSS_TYPE  # Use shared LOSS_TYPE from config
 
 
 # %%
@@ -102,6 +104,7 @@ def run_eval(save_path: str) -> dict:
 
     hr_pr_per_subject = []
     hr_gt_per_subject = []
+    print(common_ids)
     print(f"Found {len(common_ids)} subject pairs. Computing FFT HR only (fs={FS_BVP} Hz, no interpolation)...")
     for sid in tqdm(common_ids, desc="Subjects", unit="subject"):
         gt_mat = scio.loadmat(os.path.join(save_path, gt_by_id[sid]))
@@ -153,7 +156,7 @@ def visualize_mat_waves(
 
     Args:
         save_path: Directory with *gt_Wave.mat and *pr_Wave.mat pairs (e.g. Wave_sort/PURE).
-        subject_ids: List of subject ids to plot (e.g. ['10001', '10002']). If None, plot first 2 subjects.
+        subject_ids: List of subject ids to plot (e.g. ['01-01', '01-02']). If None, plot first 5 subjects.
         segment_indices: Which segment index(es) to plot per subject (e.g. [0, 1]). If None, plot first max_segments_per_subject.
         max_segments_per_subject: Max number of segments to show per subject when segment_indices is None.
         figsize: (width, height) per subplot figure.
@@ -176,7 +179,7 @@ def visualize_mat_waves(
         raise FileNotFoundError(f"No gt/pr .mat pairs in {save_path}")
 
     if subject_ids is None:
-        subject_ids = common[:2]
+        subject_ids = common[:5]
     else:
         subject_ids = [s for s in subject_ids if s in common]
 
@@ -250,8 +253,7 @@ def visualize_mat_waves(
 # %%
 # Config: set path to Wave_sort directory (gt/pr .mat pairs)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-save_path = os.path.join(BASE_DIR, "Wave_sort", "UBFC")
-
+save_path = "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/PURE_my/rPPGNet_PURE_my_srcUBFC_mySpatial0.5Temporal0.1_lossOne"
 # Name for first-level visualization subfolder under save_path/vis/.
 # Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/
 
@@ -259,8 +261,7 @@ save_path = os.path.join(BASE_DIR, "Wave_sort", "UBFC")
 # Optional: visualize waves before evaluation (uncomment and run)
 pairs = visualize_mat_waves(
     save_path,
-    subject_ids=["10003", "10004",  "10005", "10006", "10007", "10008", "10009", "10010"],
-    segment_indices=[0, 1],
+    segment_indices=[3,5],
     vis_run_name=VIS_RUN_NAME,
 )
 # %%
@@ -295,10 +296,7 @@ hr_bpm = peak_freq * 60
 
 print(f"Estimated HR: {hr_bpm:.2f} bpm")
 # %%
-# %%
 result = run_eval(save_path)
-
-# %%
 # Print table: ME, Std, MAE, RMSE, MER, Pearson r
 print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER\t\tr")
 print("-" * 90)

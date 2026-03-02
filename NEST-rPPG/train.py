@@ -23,19 +23,9 @@ from timeit import default_timer as timer
 import time
 import random
 from types import SimpleNamespace
+
+import config
 # %%
-
-TARGET_DOMAIN = {'VIPL': ['V4V',  'PURE', 'BUAA', 'UBFC'], \
-                 'V4V': ['VIPL',  'PURE', 'BUAA', 'UBFC'], \
-                 'PURE': ['VIPL', 'V4V', 'BUAA', 'UBFC'], \
-                 'BUAA': ['VIPL', 'V4V', 'PURE', 'UBFC'], \
-                 'UBFC': ['VIPL', 'V4V', 'PURE', 'BUAA']}
-
-FILEA_NAME = {'VIPL': ['VIPL', 'VIPL', 'STMap_RGB_Align_CSI'], \
-              'V4V': ['V4V', 'V4V', 'STMap_RGB'], \
-              'PURE': ['PURE', 'PURE', 'STMap'], \
-              'BUAA': ['BUAA', 'BUAA', 'STMap_RGB'], \
-              'UBFC': ['UBFC', 'UBFC', 'STMap']}
 
 # ============ Cell 1: Config (constants) – edit and run in Jupyter ============
 # True = use constants below (Jupyter). False = use command-line args (python train.py ...).
@@ -51,51 +41,84 @@ if _USE_JUPYTER_CONFIG:
         fold_num=5,
         fold_index=0,
         reTrain=0,
-        reData=1,
-        max_iter=3000,
+        eval_only=0,
+        max_iter=300,
         seed=0,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
-        temporal_aug_rate=0.1,
-        spatial_aug_rate=0.5,
+        temporal_aug_rate=config.TEMPORAL_AUG_RATE,
+        spatial_aug_rate=config.SPATIAL_AUG_RATE,
         form='Resize',
         weight=36,
         height=36,
         frames_num=256,
-        tgt='UBFC',
-        src='PURE',
+        tgt=config.TGT_DOMAIN,
+        src=config.SRC_DOMAIN,
+        wave_sort_root='./Wave_sort',
+        # eval_only=1: load saved model, skip training, run testing only (avoid training again)
+
+        # loss_type options:
+        #   'One' -> loss = src_loss_sum
+        #   'TA'  -> loss = src_loss_sum + loss_TA
+        #   'CM'  -> loss = src_loss_sum + loss_CM
+        #   'DM'  -> loss = src_loss_sum + loss_DM
+        #   'All' -> loss = src_loss_sum + loss_TA + loss_CM + loss_DM
+        loss_type=config.LOSS_TYPE,
     )
 else:
     args = utils.get_args()
+    # Use config defaults for missing CLI args
+    if not hasattr(args, 'loss_type'):
+        args.loss_type = config.LOSS_TYPE
+    if not hasattr(args, 'wave_sort_root'):
+        args.wave_sort_root = './Wave_sort'
+    if not hasattr(args, 'eval_only'):
+        args.eval_only = 0
+    if not hasattr(args, 'temporal_aug_rate'):
+        args.temporal_aug_rate = config.TEMPORAL_AUG_RATE
+    if not hasattr(args, 'spatial_aug_rate'):
+        args.spatial_aug_rate = config.SPATIAL_AUG_RATE
 # ============ End Cell 1 ============
+
+# ============ Seed: make runs reproducible ============
+seed = getattr(args, 'seed', 0)
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+
+# cuDNN deterministic settings
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 # ============ Cell 2: Training (run after config) ============
 print("=" * 60)
-
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
 # Source: single domain if --src set, else all 4 except target
 if getattr(args, 'src', None) is not None:
     Source_domain_Names = [args.src]
     print('Single source domain:', args.src)
 else:
-    Source_domain_Names = TARGET_DOMAIN[args.tgt]
+    Source_domain_Names = config.TARGET_DOMAIN[args.tgt]
 num_sources = len(Source_domain_Names)
-root_file = r'./STMap/'
+# Paths from shared config (use REPO_ROOT for absolute paths; centralized STMap_Index)
+root_file = config.REPO_ROOT
+index_base = config.STMAP_INDEX_BASE
 # Build source configs (list of dicts: name, fileRoot, saveRoot, map)
 source_configs = []
 for name in Source_domain_Names:
-    fn = FILEA_NAME[name]
+    fn = config.FILEA_NAME[name]
+    file_root = os.path.join(root_file, fn[0])
     source_configs.append({
         'name': name,
-        'fileRoot': root_file + fn[0],
-        'saveRoot': root_file + 'STMap_Index/' + fn[1],
+        'fileRoot': file_root,
+        'saveRoot': os.path.join(index_base, fn[1]),
         'map': fn[2] + '.png'
     })
 
-FILE_Name = FILEA_NAME[args.tgt]
+FILE_Name = config.FILEA_NAME[args.tgt]
 Target_name = args.tgt
-Target_fileRoot = root_file + FILE_Name[0]
-Target_saveRoot = root_file + 'STMap_Index/' + FILE_Name[1]
+Target_fileRoot = os.path.join(root_file, FILE_Name[0])
+Target_saveRoot = os.path.join(index_base, FILE_Name[1])
 Target_map = FILE_Name[2] + '.png'
 
 # 训练参数
@@ -123,7 +146,17 @@ print('fold num:', frames_num, ' fold index:', fold_index)
 if not os.path.exists('./Result_log'):
     os.makedirs('./Result_log')
 src_suffix = ('_src' + args.src) if getattr(args, 'src', None) else ''
-rPPGNet_name = 'rPPGNet_' + Target_name + src_suffix + 'Spatial' + str(args.spatial_aug_rate) + 'Temporal' + str(args.temporal_aug_rate)
+loss_suffix = '_loss' + str(getattr(args, 'loss_type', 'TA'))
+rPPGNet_name = (
+    'rPPGNet_'
+    + Target_name
+    + src_suffix
+    + 'Spatial'
+    + str(args.spatial_aug_rate)
+    + 'Temporal'
+    + str(args.temporal_aug_rate)
+    + loss_suffix
+)
 log = Logger()
 log.open('./Result_log/' + rPPGNet_name + '_log.txt', mode='a')
 log.write("\n----------------------------------------------- [START %s] %s\n\n" % (
@@ -137,34 +170,31 @@ else:
     device = torch.device('cpu')
     print('on CPU')
 # %%
-# 数据集 — index regeneration (reData=1) and dataset / DataLoader setup
+# 数据集 — index regeneration and dataset / DataLoader setup
 print("\n--- Dataset & index setup ---")
-if args.reData == 1:
-    print("reData=1: regenerating indexes (clearing old index files, then building from STMap folders).")
-    # Clear old index files so we don't use stale paths after renaming folders
-    # (especially important when you changed subject IDs like PURE 10010 → new name)
-    for cfg in source_configs + [{'name': Target_name, 'saveRoot': Target_saveRoot}]:
-        save_root = cfg['saveRoot']
-        if os.path.exists(save_root):
-            removed = 0
-            for fname in os.listdir(save_root):
-                fpath = os.path.join(save_root, fname)
-                if os.path.isfile(fpath):
-                    os.remove(fpath)
-                    removed += 1
-            if removed:
-                print("  Cleared %d index files in %s" % (removed, save_root))
+print("Regenerating indexes on every run (clearing old index files, then building from STMap folders).")
+# Clear old index files so we don't use stale paths after renaming folders
+# (especially important when you changed subject IDs like PURE 10010 → new name)
+for cfg in source_configs + [{'name': Target_name, 'saveRoot': Target_saveRoot}]:
+    save_root = cfg['saveRoot']
+    if os.path.exists(save_root):
+        removed = 0
+        for fname in os.listdir(save_root):
+            fpath = os.path.join(save_root, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                removed += 1
+        if removed:
+            print("  Cleared %d index files in %s" % (removed, save_root))
 
-    print("  Building target index: %s from %s" % (Target_name, Target_fileRoot))
-    Target_index = os.listdir(Target_fileRoot)
-    Target_Indexa = MyDataset.getIndex(Target_fileRoot, Target_index,
-                                       Target_saveRoot, Target_map, 10, frames_num)
-    for cfg in source_configs:
-        print("  Building source index: %s from %s" % (cfg['name'], cfg['fileRoot']))
-        idx_list = os.listdir(cfg['fileRoot'])
-        MyDataset.getIndex(cfg['fileRoot'], idx_list, cfg['saveRoot'], cfg['map'], 10, frames_num)
-else:
-    print("reData=0: using existing index files (no regeneration).")
+print("  Building target index: %s from %s" % (Target_name, Target_fileRoot))
+Target_index = os.listdir(Target_fileRoot)
+Target_Indexa = MyDataset.getIndex(Target_fileRoot, Target_index,
+                                   Target_saveRoot, Target_map, 10, frames_num)
+for cfg in source_configs:
+    print("  Building source index: %s from %s" % (cfg['name'], cfg['fileRoot']))
+    idx_list = os.listdir(cfg['fileRoot'])
+    MyDataset.getIndex(cfg['fileRoot'], idx_list, cfg['saveRoot'], cfg['map'], 10, frames_num)
 
 print("Loading datasets (Data_DG) from index dirs...")
 source_dbs = []
@@ -182,16 +212,23 @@ src_loaders = [DataLoader(db, batch_size=batch_size_num, shuffle=True, num_worke
 tgt_loader = DataLoader(Target_db, batch_size=batch_size_num, shuffle=False, num_workers=num_workers)
 print("--- Done.\n")
 
-# Save example figures: one sample per domain (STMap + BVP) to STMap_Index/example_fig/
+# Save example figures: one sample per domain (STMap + BVP) to STMap_my/STMap_Index/example_fig/
 utils.train_utils.save_example_figures(root_file, tgt_loader, src_loaders, source_configs, Target_name, 
-                                       tgt_db=Target_db, source_dbs=source_dbs, target_map=Target_map)
+                                       tgt_db=Target_db, source_dbs=source_dbs, target_map=Target_map,
+                                       example_fig_dir=os.path.join(config.RESULT_LOG_DIR, 'example_fig'))
 
 # %%
 BaseNet = model.BaseNet()
 
-if reTrain == 1:
-    BaseNet = torch.load('./Result_Model/' + rPPGNet_name, map_location=device)
-    print('load ' + rPPGNet_name + ' right')
+eval_only = getattr(args, 'eval_only', 0)
+if reTrain == 1 or eval_only:
+    model_path = './model/' + rPPGNet_name
+    if not os.path.isfile(model_path):
+        raise FileNotFoundError('Model not found: %s (set eval_only=0 to train, or train first)' % model_path)
+    BaseNet = torch.load(model_path, map_location=device)
+    print('Loaded model:', rPPGNet_name)
+    if eval_only:
+        print('eval_only=1: skipping training, will run testing only.')
 BaseNet.to(device=device)
 optimizer_rPPG = torch.optim.Adam(BaseNet.parameters(), lr=learning_rate)
 loss_func_NP = MyLoss.P_loss3().to(device)
@@ -224,91 +261,110 @@ print("  Max iterations:   ", max_iter)
 print("  Frames per clip:  ", frames_num)
 print("  Device:           ", device)
 print("  Model:            ", BaseNet.__class__.__name__)
+print("  Loss type:        ", args.loss_type)
 total_src_samples = sum(len(db) for db in source_dbs)
 print("  Source samples:   ", total_src_samples, " (target: %d)" % len(Target_db))
 print("  Log file:         ", './Result_log/' + rPPGNet_name + '_log.txt')
 print("=" * 60 + "\n")
 
-# Training
-BaseNet.train()
-for iter_num in range(max_iter + 1):
-    # Reset iterators at epoch boundaries
-    for i in range(num_sources):
-        if iter_num > 0 and (iter_num % src_iter_per_epochs[i] == 0):
-            src_iters[i] = src_loaders[i].__iter__()
-
-    ######### data prepare #########
-    src_data_list, src_bvp_list, src_HR_rel_list = [], [], []
-    src_data_aug_list, src_bvp_aug_list, src_HR_rel_aug_list = [], [], []
-    src_batch_sizes = []
-
-    for i in range(num_sources):
-        data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug = src_iters[i].__next__()
-        src_batch_sizes.append(data.shape[0])
-        src_data_list.append(Variable(data).float().to(device=device))
-        src_bvp_list.append(Variable(bvp).float().to(device=device).unsqueeze(dim=1))
-        src_HR_rel_list.append(Variable(torch.Tensor(HR_rel)).float().to(device=device))
-        src_data_aug_list.append(Variable(data_aug).float().to(device=device))
-        src_bvp_aug_list.append(Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1))
-        src_HR_rel_aug_list.append(Variable(torch.Tensor(HR_rel_aug)).float().to(device=device))
-
-    optimizer_rPPG.zero_grad()
-    input = torch.cat(src_data_list, dim=0)
-    input_aug = torch.cat(src_data_aug_list, dim=0)
-    bvp_pre, HR_pr, av = BaseNet(input)
-    bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(input_aug)
-
-    bvp_pre_split = []
-    HR_pr_split = []
-    bvp_pre_aug_split = []
-    HR_pr_aug_split = []
-    start_idx = 0
-    for bs in src_batch_sizes:
-        end_idx = start_idx + bs
-        bvp_pre_split.append(bvp_pre[start_idx:end_idx])
-        HR_pr_split.append(HR_pr[start_idx:end_idx])
-        bvp_pre_aug_split.append(bvp_pre_aug[start_idx:end_idx])
-        HR_pr_aug_split.append(HR_pr_aug[start_idx:end_idx])
-        start_idx = end_idx
-
-    src_losses = []
-    src_losses_aug = []
-    for i in range(num_sources):
-        src_loss_i = MyLoss.get_loss(bvp_pre_split[i], HR_pr_split[i], src_bvp_list[i],
-                                     src_HR_rel_list[i], source_configs[i]['name'],
-                                     loss_func_NP, loss_func_L1, args, iter_num)
-        src_loss_aug_i = MyLoss.get_loss(bvp_pre_aug_split[i], HR_pr_aug_split[i],
-                                        src_bvp_aug_list[i], src_HR_rel_aug_list[i],
-                                        source_configs[i]['name'], loss_func_NP, loss_func_L1, args, iter_num)
-        src_losses.append(src_loss_i)
-        src_losses_aug.append(src_loss_aug_i)
-
-    src_loss_sum = sum(src_losses)
-    src_loss_aug_sum = sum(src_losses_aug)
-    HR_rels = torch.cat(src_HR_rel_list, dim=0)
-    HR_rel_augs = torch.cat(src_HR_rel_aug_list, dim=0)
-    loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
-    loss_DM = loss_func_NEST_DM(av, av_aug)
-    loss_TA = loss_func_NEST_TA(torch.cat((av, av_aug), dim=0), torch.cat((HR_rels, HR_rel_augs), dim=0))
-
-    k = 2.0 / (1.0 + np.exp(-10.0 * iter_num / args.max_iter)) - 1.0
-    loss = src_loss_sum + 1*loss_TA
-    if torch.sum(torch.isnan(loss)) > 0:
-        print('Nan')
-        break
-    else:
-        loss.backward()
-        optimizer_rPPG.step()
-    if iter_num % 100 == 0:
-        log_line = 'Train Inter:' + str(iter_num) + ' | loss:  ' + str(loss.data.cpu().numpy())
+# Training (skipped when eval_only=1)
+if not eval_only:
+    BaseNet.train()
+    for iter_num in range(max_iter + 1):
+        # Reset iterators at epoch boundaries
         for i in range(num_sources):
-            log_line += ' |' + source_configs[i]['name'] + ' : ' + str(src_losses[i].data.cpu().numpy())
-        log_line += ' |' + 'CM' + ' : ' + str(loss_CM.data.cpu().numpy()) \
-                   + ' |' + 'DM' + ' : ' + str(loss_DM.data.cpu().numpy()) \
-                   + ' |' + 'TA' + ' : ' + str(loss_TA.data.cpu().numpy()) \
-                   + ' |' + time_to_str(timer() - start, 'min')
-        log.write(log_line)
-        log.write('\n')
+            if iter_num > 0 and (iter_num % src_iter_per_epochs[i] == 0):
+                src_iters[i] = src_loaders[i].__iter__()
+
+        ######### data prepare #########
+        src_data_list, src_bvp_list, src_HR_rel_list = [], [], []
+        src_data_aug_list, src_bvp_aug_list, src_HR_rel_aug_list = [], [], []
+        src_batch_sizes = []
+
+        for i in range(num_sources):
+            data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug = src_iters[i].__next__()
+            src_batch_sizes.append(data.shape[0])
+            src_data_list.append(Variable(data).float().to(device=device))
+            src_bvp_list.append(Variable(bvp).float().to(device=device).unsqueeze(dim=1))
+            src_HR_rel_list.append(Variable(torch.Tensor(HR_rel)).float().to(device=device))
+            src_data_aug_list.append(Variable(data_aug).float().to(device=device))
+            src_bvp_aug_list.append(Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1))
+            src_HR_rel_aug_list.append(Variable(torch.Tensor(HR_rel_aug)).float().to(device=device))
+
+        optimizer_rPPG.zero_grad()
+        input = torch.cat(src_data_list, dim=0)
+        input_aug = torch.cat(src_data_aug_list, dim=0)
+        bvp_pre, HR_pr, av = BaseNet(input)
+        bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(input_aug)
+
+        bvp_pre_split = []
+        HR_pr_split = []
+        bvp_pre_aug_split = []
+        HR_pr_aug_split = []
+        start_idx = 0
+        for bs in src_batch_sizes:
+            end_idx = start_idx + bs
+            bvp_pre_split.append(bvp_pre[start_idx:end_idx])
+            HR_pr_split.append(HR_pr[start_idx:end_idx])
+            bvp_pre_aug_split.append(bvp_pre_aug[start_idx:end_idx])
+            HR_pr_aug_split.append(HR_pr_aug[start_idx:end_idx])
+            start_idx = end_idx
+
+        src_losses = []
+        src_losses_aug = []
+        for i in range(num_sources):
+            src_loss_i = MyLoss.get_loss(bvp_pre_split[i], HR_pr_split[i], src_bvp_list[i],
+                                         src_HR_rel_list[i], source_configs[i]['name'],
+                                         loss_func_NP, loss_func_L1, args, iter_num)
+            src_loss_aug_i = MyLoss.get_loss(bvp_pre_aug_split[i], HR_pr_aug_split[i],
+                                            src_bvp_aug_list[i], src_HR_rel_aug_list[i],
+                                            source_configs[i]['name'], loss_func_NP, loss_func_L1, args, iter_num)
+            src_losses.append(src_loss_i)
+            src_losses_aug.append(src_loss_aug_i)
+
+        src_loss_sum = sum(src_losses)
+        src_loss_aug_sum = sum(src_losses_aug)
+        HR_rels = torch.cat(src_HR_rel_list, dim=0)
+        HR_rel_augs = torch.cat(src_HR_rel_aug_list, dim=0)
+        loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
+        loss_DM = loss_func_NEST_DM(av, av_aug)
+        loss_TA = loss_func_NEST_TA(torch.cat((av, av_aug), dim=0), torch.cat((HR_rels, HR_rel_augs), dim=0))
+
+        k = 2.0 / (1.0 + np.exp(-10.0 * iter_num / args.max_iter)) - 1.0
+        if args.loss_type == 'One':
+            # Only source supervised loss
+            loss = src_loss_sum + 0.001 * loss_TA + 0.001 * loss_CM + 0.001 * loss_DM
+        elif args.loss_type == 'TA':
+            loss = src_loss_sum + 1 * loss_TA
+        elif args.loss_type == 'CM':
+            loss = src_loss_sum + 1 * loss_CM
+        elif args.loss_type == 'DM':
+            loss = src_loss_sum + 1 * loss_DM
+        elif args.loss_type == 'All':
+            # Combine all three auxiliary objectives
+            loss = src_loss_sum + 1 * loss_TA + 1 * loss_CM + 1 * loss_DM
+        else:
+            raise ValueError(
+                f"Unknown loss_type: {args.loss_type}. Expected 'One', 'TA', 'CM', 'DM', or 'All'."
+            )
+        if torch.sum(torch.isnan(loss)) > 0:
+            print('Nan')
+            break
+        else:
+            loss.backward()
+            optimizer_rPPG.step()
+        if iter_num % 100 == 0:
+            log_line = 'Train Inter:' + str(iter_num) + ' | loss:  ' + str(loss.data.cpu().numpy())
+            for i in range(num_sources):
+                log_line += ' |' + source_configs[i]['name'] + ' : ' + str(src_losses[i].data.cpu().numpy())
+            log_line += ' |' + 'CM' + ' : ' + str(loss_CM.data.cpu().numpy()) \
+                       + ' |' + 'DM' + ' : ' + str(loss_DM.data.cpu().numpy()) \
+                       + ' |' + 'TA' + ' : ' + str(loss_TA.data.cpu().numpy()) \
+                       + ' |' + time_to_str(timer() - start, 'min')
+            log.write(log_line)
+            log.write('\n')
+else:
+    print('Skipped training (eval_only=1).')
 # %%
 # Testing
 BaseNet.eval()
@@ -335,10 +391,67 @@ io.savemat('./Result/' + rPPGNet_name + 'HR_pr.mat', {'HR_pr': HR_pr_temp})
 io.savemat('./Result/' + rPPGNet_name + 'HR_rel.mat', {'HR_rel': HR_rel_temp})
 io.savemat('./Result/' + rPPGNet_name + 'WAVE_ALL.mat', {'Wave': BVP_ALL})
 io.savemat('./Result/' + rPPGNet_name + 'WAVE_PR_ALL.mat', {'Wave': BVP_PR_ALL})
-if not os.path.exists('./Result_Model'):
-    os.makedirs('./Result_Model')
-model_path = './Result_Model/' + rPPGNet_name
+if not os.path.exists('./model'):
+    os.makedirs('./model')
+model_path = './model/' + rPPGNet_name
 torch.save(BaseNet, model_path)
 print('Saved model:', os.path.abspath(model_path))
+
+# %%
+def _wave_sort_from_index(index_dir: str, wave_gt: np.ndarray, wave_pr: np.ndarray, out_dir: str):
+    """
+    Group per-window Wave arrays into per-subject .mat files using STMap_Index order.
+    index_dir: directory containing index .mat files (each has Path, Step_Index)
+    wave_gt / wave_pr: arrays shaped (N, T) (or squeezable to that)
+    out_dir: output directory to write <subject>{gt,pr}_Wave.mat
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    files_list = sorted([f for f in os.listdir(index_dir) if f.endswith('.mat')])
+    if not files_list:
+        raise FileNotFoundError(f"No index .mat files found in {index_dir}")
+
+    wave_gt = np.squeeze(np.asarray(wave_gt))
+    wave_pr = np.squeeze(np.asarray(wave_pr))
+    if wave_gt.ndim == 1:
+        wave_gt = wave_gt[None, :]
+    if wave_pr.ndim == 1:
+        wave_pr = wave_pr[None, :]
+
+    n_use = min(len(files_list), wave_gt.shape[0], wave_pr.shape[0])
+    if n_use == 0:
+        raise ValueError("No wave rows available for sorting.")
+
+    first = io.loadmat(os.path.join(index_dir, files_list[0]))
+    last_path = str(first['Path'][0])
+    last_subject = os.path.basename(os.path.normpath(last_path))
+    gt_buf, pr_buf = [], []
+
+    for i in range(n_use):
+        temp = io.loadmat(os.path.join(index_dir, files_list[i]))
+        now_path = str(temp['Path'][0])
+        now_subject = os.path.basename(os.path.normpath(now_path))
+
+        if now_path != last_path and gt_buf:
+            io.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
+            io.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
+            gt_buf, pr_buf = [], []
+
+        gt_buf.append(wave_gt[i, :])
+        pr_buf.append(wave_pr[i, :])
+        last_path = now_path
+        last_subject = now_subject
+
+    if gt_buf:
+        io.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
+        io.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
+
+    print(f'Wave_sort done: wrote per-subject files to {out_dir} (n_use={n_use})')
+
+
+try:
+    wave_sort_out = os.path.join(args.wave_sort_root, Target_name, rPPGNet_name)
+    _wave_sort_from_index(Target_saveRoot, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+except Exception as e:
+    print('Warning: Wave_sort failed:', repr(e))
 
 # %%

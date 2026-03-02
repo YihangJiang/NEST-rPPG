@@ -8,7 +8,7 @@ __pycache__/
 # Training outputs and logs
 NEST-rPPG/Result/
 NEST-rPPG/Result_log/
-NEST-rPPG/Result_Model/
+NEST-rPPG/model/
 
 # Generated wave files for BVP evaluation
 NEST-rPPG/Wave_sort/

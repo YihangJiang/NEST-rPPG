@@ -94,7 +94,7 @@ class Data_DG(Dataset):
             gt = gt.astype('float32')
             bvp = np.array(0.0)
             bvp = bvp.astype('float32')
-        elif self.dataName == 'PURE':
+        elif self.dataName == 'PURE' or self.dataName == 'PURE_my' or self.dataName.startswith('PURE_trans_row'):
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
@@ -109,7 +109,7 @@ class Data_DG(Dataset):
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
             gt = gt.astype('float32')
-        elif self.dataName == 'UBFC':
+        elif self.dataName == 'UBFC' or self.dataName == 'UBFC_my':
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
@@ -224,6 +224,10 @@ def getIndex(root_path, filesList, save_path, Pic_path, Step, frames_num):
         now = os.path.join(root_path, sub_file)
         img_path = os.path.join(now, os.path.join('STMap', Pic_path))
         temp = cv2.imread(img_path)
+        if temp is None:
+            # Skip subjects without the expected STMap image
+            print('  Warning: cannot read STMap image, skipping:', img_path)
+            continue
         Num = temp.shape[1]
         Res = Num - frames_num - 1  # 可能是Diff数据
         Step_num = int(Res/Step)

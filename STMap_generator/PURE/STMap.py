@@ -6,13 +6,14 @@ import csv
 import cv2
 import numpy as np
 from math import *
+import matplotlib.pyplot as plt
 
 # %%
 # Config: paths for PURE (STMap_my/PURE_my)
 STMap_name = 'STMap_RGB.png'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..'))
-PURE_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'PURE_my')
+PURE_MY_ROOT = os.path.join(PROJECT_ROOT, 'STMap_my', 'PURE_my_in')
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):

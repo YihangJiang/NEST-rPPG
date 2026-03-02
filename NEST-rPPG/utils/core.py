@@ -80,6 +80,8 @@ def get_args():
                         help='fold_index:0-fold_num', dest='fold_index')
     parser.add_argument('-rT', '--reTrain', dest='reTrain', type=int, default=0,
                         help='Load model')
+    parser.add_argument('--eval_only', dest='eval_only', type=int, default=0,
+                        help='1=load model, skip training, run testing only')
     parser.add_argument('-rD', '--reData', dest='reData', type=int, default=1,
                         help='re Data')
     parser.add_argument('-mi', '--max_iter', dest='max_iter', type=int, default=20000,

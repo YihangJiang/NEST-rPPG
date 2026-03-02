@@ -82,7 +82,7 @@ def save_example_figure(data, bvp, gt, domain_name, save_dir, filename, subject_
     plt.close(fig)
 
 
-def save_example_figures(root_file, tgt_loader, src_loaders, source_configs, target_name, tgt_db=None, source_dbs=None, target_map=None):
+def save_example_figures(root_file, tgt_loader, src_loaders, source_configs, target_name, tgt_db=None, source_dbs=None, target_map=None, example_fig_dir=None):
     """
     Save example figures for target and source domains to STMap_Index/example_fig/.
 
@@ -99,8 +99,10 @@ def save_example_figures(root_file, tgt_loader, src_loaders, source_configs, tar
         tgt_db: optional target dataset (to get subject ID)
         source_dbs: optional list of source datasets (to get subject IDs)
         target_map: optional target STMap filename (e.g. 'STMap.png')
+        example_fig_dir: optional; if set, save figures here instead of root_file/STMap_Index/example_fig
     """
-    example_fig_dir = os.path.join(root_file, 'STMap_Index', 'example_fig')
+    if example_fig_dir is None:
+        example_fig_dir = os.path.join(root_file, 'STMap_Index', 'example_fig')
     os.makedirs(example_fig_dir, exist_ok=True)
 
     # Target: one example
