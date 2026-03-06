@@ -45,7 +45,9 @@ class BasicBlock(nn.Module):
 class BaseNet(nn.Module):
     def __init__(self):
         super(BaseNet, self).__init__()
-        model_resnet = models.resnet18(pretrained=True)
+        # Use new torchvision API: weights instead of deprecated pretrained=True
+        from torchvision.models import ResNet18_Weights
+        model_resnet = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
         self.conv1 = model_resnet.conv1
         self.bn1 = model_resnet.bn1
         self.relu = model_resnet.relu

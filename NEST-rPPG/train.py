@@ -52,7 +52,7 @@ if _USE_JUPYTER_CONFIG:
         fold_index=0,
         reTrain=0,
         reData=1,
-        max_iter=3000,
+        max_iter=300,
         seed=0,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=0.1,
