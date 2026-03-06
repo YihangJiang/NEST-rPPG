@@ -54,7 +54,7 @@ class Data_DG(Dataset):
             bvp = bvp.astype('float32')
             gt = np.array(0.0)
             gt = gt.astype('float32')
-        elif self.dataName == 'BUAA':
+        elif self.dataName == 'BUAA' or self.dataName == 'BUAA_my':
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
@@ -68,6 +68,9 @@ class Data_DG(Dataset):
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = gt[int(Step_Index / 10)]
+            if np.isnan(gt):
+                print(f"[WARN] Degenerate HR (all NaN) in {self.dataName} at {nowPath}, Step_Index={Step_Index}")
+                gt = 0.0
             gt = gt.astype('float32')
 
         elif self.dataName == 'VIPL':
@@ -84,6 +87,9 @@ class Data_DG(Dataset):
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            if np.isnan(gt):
+                print(f"[WARN] Degenerate HR (all NaN) in VIPL at {nowPath}, Step_Index={Step_Index}")
+                gt = 0.0
             gt = gt.astype('float32')
         elif self.dataName == 'V4V':
             gt_name = 'Label/HR.mat'
@@ -91,6 +97,9 @@ class Data_DG(Dataset):
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            if np.isnan(gt):
+                print(f"[WARN] Degenerate HR (all NaN) in V4V at {nowPath}, Step_Index={Step_Index}")
+                gt = 0.0
             gt = gt.astype('float32')
             bvp = np.array(0.0)
             bvp = bvp.astype('float32')
@@ -100,14 +109,25 @@ class Data_DG(Dataset):
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
             bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
-            bvp = bvp.astype('float32')
+            bvp_min = np.min(bvp)
+            bvp_max = np.max(bvp)
+            if bvp_max - bvp_min <= 0:
+                print(f"[WARN] Degenerate BVP (max=min) in PURE at {nowPath}, Step_Index={Step_Index}, "
+                      f"min={bvp_min:.6f}, max={bvp_max:.6f}")
+                # Avoid NaNs: keep bvp as zeros in this rare case
+                bvp = np.zeros_like(bvp, dtype='float32')
+            else:
+                bvp = (bvp - bvp_min) / (bvp_max - bvp_min)
+                bvp = bvp.astype('float32')
 
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            if np.isnan(gt):
+                print(f"[WARN] Degenerate HR (all NaN) in PURE at {nowPath}, Step_Index={Step_Index}")
+                gt = 0.0
             gt = gt.astype('float32')
         elif self.dataName == 'UBFC' or self.dataName == 'UBFC_my':
             bvp_name = 'Label/BVP.mat'
@@ -115,14 +135,24 @@ class Data_DG(Dataset):
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
             bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
-            bvp = bvp.astype('float32')
+            bvp_min = np.min(bvp)
+            bvp_max = np.max(bvp)
+            if bvp_max - bvp_min <= 0:
+                print(f"[WARN] Degenerate BVP (max=min) in UBFC at {nowPath}, Step_Index={Step_Index}, "
+                      f"min={bvp_min:.6f}, max={bvp_max:.6f}")
+                bvp = np.zeros_like(bvp, dtype='float32')
+            else:
+                bvp = (bvp - bvp_min) / (bvp_max - bvp_min)
+                bvp = bvp.astype('float32')
 
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            if np.isnan(gt):
+                print(f"[WARN] Degenerate HR (all NaN) in UBFC at {nowPath}, Step_Index={Step_Index}")
+                gt = 0.0
             gt = gt.astype('float32')
 
         return gt, bvp

@@ -176,3 +176,53 @@ def save_example_figures(root_file, tgt_loader, src_loaders, source_configs, tar
 
     print('Example figures saved to %s (tgt_loaded.png, src_loaded.png)' % example_fig_dir)
     return example_fig_dir
+
+
+def wave_sort_from_index(index_dir: str, wave_gt: np.ndarray, wave_pr: np.ndarray, out_dir: str):
+    """
+    Group per-window Wave arrays into per-subject .mat files using STMap_Index order.
+    index_dir: directory containing index .mat files (each has Path, Step_Index)
+    wave_gt / wave_pr: arrays shaped (N, T) (or squeezable to that)
+    out_dir: output directory to write <subject>{gt,pr}_Wave.mat
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    files_list = sorted([f for f in os.listdir(index_dir) if f.endswith('.mat')])
+    if not files_list:
+        raise FileNotFoundError(f"No index .mat files found in {index_dir}")
+
+    wave_gt = np.squeeze(np.asarray(wave_gt))
+    wave_pr = np.squeeze(np.asarray(wave_pr))
+    if wave_gt.ndim == 1:
+        wave_gt = wave_gt[None, :]
+    if wave_pr.ndim == 1:
+        wave_pr = wave_pr[None, :]
+
+    n_use = min(len(files_list), wave_gt.shape[0], wave_pr.shape[0])
+    if n_use == 0:
+        raise ValueError("No wave rows available for sorting.")
+
+    first = scio.loadmat(os.path.join(index_dir, files_list[0]))
+    last_path = str(first['Path'][0])
+    last_subject = os.path.basename(os.path.normpath(last_path))
+    gt_buf, pr_buf = [], []
+
+    for i in range(n_use):
+        temp = scio.loadmat(os.path.join(index_dir, files_list[i]))
+        now_path = str(temp['Path'][0])
+        now_subject = os.path.basename(os.path.normpath(now_path))
+
+        if now_path != last_path and gt_buf:
+            scio.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
+            scio.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
+            gt_buf, pr_buf = [], []
+
+        gt_buf.append(wave_gt[i, :])
+        pr_buf.append(wave_pr[i, :])
+        last_path = now_path
+        last_subject = now_subject
+
+    if gt_buf:
+        scio.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
+        scio.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
+
+    print(f'Wave_sort done: wrote per-subject files to {out_dir} (n_use={n_use})')

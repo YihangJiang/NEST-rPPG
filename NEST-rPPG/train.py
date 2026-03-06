@@ -100,8 +100,8 @@ if getattr(args, 'src', None) is not None:
 else:
     Source_domain_Names = config.TARGET_DOMAIN[args.tgt]
 num_sources = len(Source_domain_Names)
-# Paths from shared config (use REPO_ROOT for absolute paths; centralized STMap_Index)
-root_file = config.REPO_ROOT
+# Paths from shared config (STMAP_PARENT_ROOT = parent of STMap/ or STMap_my/; centralized STMap_Index)
+root_file = config.STMAP_PARENT_ROOT
 index_base = config.STMAP_INDEX_BASE
 # Build source configs (list of dicts: name, fileRoot, saveRoot, map)
 source_configs = []
@@ -295,6 +295,7 @@ if not eval_only:
         input = torch.cat(src_data_list, dim=0)
         input_aug = torch.cat(src_data_aug_list, dim=0)
         bvp_pre, HR_pr, av = BaseNet(input)
+
         bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(input_aug)
 
         bvp_pre_split = []
@@ -326,9 +327,33 @@ if not eval_only:
         src_loss_aug_sum = sum(src_losses_aug)
         HR_rels = torch.cat(src_HR_rel_list, dim=0)
         HR_rel_augs = torch.cat(src_HR_rel_aug_list, dim=0)
-        loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
-        loss_DM = loss_func_NEST_DM(av, av_aug)
-        loss_TA = loss_func_NEST_TA(torch.cat((av, av_aug), dim=0), torch.cat((HR_rels, HR_rel_augs), dim=0))
+
+        # NaN/Inf diagnostics before CM/DM/TA
+        def _nan_info(name, tensor):
+            return f"{name}: NaN={torch.isnan(tensor).any().item()}, Inf={torch.isinf(tensor).any().item()}"
+
+        # Check supervised pieces
+        for i in range(num_sources):
+            if torch.isnan(src_losses[i]).any() or torch.isinf(src_losses[i]).any():
+                print(f"NaN/Inf detected in src_loss at iter {iter_num}, batch {i}, domain {source_configs[i]['name']}")
+                print("  ", _nan_info("bvp_pre_split", bvp_pre_split[i]))
+                print("  ", _nan_info("src_bvp_list", src_bvp_list[i]))
+                print("  ", _nan_info("HR_pr_split", HR_pr_split[i]))
+                print("  ", _nan_info("src_HR_rel_list", src_HR_rel_list[i]))
+
+        # Check for NaNs/Infs before CM/DM/TA to avoid SVD failures
+        features = torch.cat((av, av_aug), dim=0)
+        if torch.isnan(features).any() or torch.isinf(features).any():
+            print("NaN/Inf detected in features; skipping CM/DM/TA for this iteration.")
+            print("  ", _nan_info("av", av))
+            print("  ", _nan_info("av_aug", av_aug))
+            loss_CM = torch.tensor(0.0, device=device, dtype=src_losses[0].dtype)
+            loss_DM = torch.tensor(0.0, device=device, dtype=src_losses[0].dtype)
+            loss_TA = torch.tensor(0.0, device=device, dtype=src_losses[0].dtype)
+        else:
+            loss_CM = -loss_func_NEST_CM(features)
+            loss_DM = loss_func_NEST_DM(av, av_aug)
+            loss_TA = loss_func_NEST_TA(features, torch.cat((HR_rels, HR_rel_augs), dim=0))
 
         k = 2.0 / (1.0 + np.exp(-10.0 * iter_num / args.max_iter)) - 1.0
         if args.loss_type == 'One':
@@ -337,7 +362,8 @@ if not eval_only:
         elif args.loss_type == 'TA':
             loss = src_loss_sum + 1 * loss_TA
         elif args.loss_type == 'CM':
-            loss = src_loss_sum + 1 * loss_CM
+            # loss = src_loss_sum + 1 * loss_CM
+            loss = src_loss_sum
         elif args.loss_type == 'DM':
             loss = src_loss_sum + 1 * loss_DM
         elif args.loss_type == 'All':
@@ -347,8 +373,13 @@ if not eval_only:
             raise ValueError(
                 f"Unknown loss_type: {args.loss_type}. Expected 'One', 'TA', 'CM', 'DM', or 'All'."
             )
-        if torch.sum(torch.isnan(loss)) > 0:
-            print('Nan')
+        if torch.sum(torch.isnan(loss)) > 0 or torch.sum(torch.isinf(loss)) > 0:
+            print('Nan/Inf detected in final loss. Breakdown:')
+            print("  ", _nan_info("src_loss_sum", src_loss_sum))
+            print("  ", _nan_info("src_loss_aug_sum", src_loss_aug_sum))
+            print("  ", _nan_info("loss_CM", loss_CM))
+            print("  ", _nan_info("loss_DM", loss_DM))
+            print("  ", _nan_info("loss_TA", loss_TA))
             break
         else:
             loss.backward()
@@ -397,60 +428,9 @@ model_path = './model/' + rPPGNet_name
 torch.save(BaseNet, model_path)
 print('Saved model:', os.path.abspath(model_path))
 
-# %%
-def _wave_sort_from_index(index_dir: str, wave_gt: np.ndarray, wave_pr: np.ndarray, out_dir: str):
-    """
-    Group per-window Wave arrays into per-subject .mat files using STMap_Index order.
-    index_dir: directory containing index .mat files (each has Path, Step_Index)
-    wave_gt / wave_pr: arrays shaped (N, T) (or squeezable to that)
-    out_dir: output directory to write <subject>{gt,pr}_Wave.mat
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    files_list = sorted([f for f in os.listdir(index_dir) if f.endswith('.mat')])
-    if not files_list:
-        raise FileNotFoundError(f"No index .mat files found in {index_dir}")
-
-    wave_gt = np.squeeze(np.asarray(wave_gt))
-    wave_pr = np.squeeze(np.asarray(wave_pr))
-    if wave_gt.ndim == 1:
-        wave_gt = wave_gt[None, :]
-    if wave_pr.ndim == 1:
-        wave_pr = wave_pr[None, :]
-
-    n_use = min(len(files_list), wave_gt.shape[0], wave_pr.shape[0])
-    if n_use == 0:
-        raise ValueError("No wave rows available for sorting.")
-
-    first = io.loadmat(os.path.join(index_dir, files_list[0]))
-    last_path = str(first['Path'][0])
-    last_subject = os.path.basename(os.path.normpath(last_path))
-    gt_buf, pr_buf = [], []
-
-    for i in range(n_use):
-        temp = io.loadmat(os.path.join(index_dir, files_list[i]))
-        now_path = str(temp['Path'][0])
-        now_subject = os.path.basename(os.path.normpath(now_path))
-
-        if now_path != last_path and gt_buf:
-            io.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
-            io.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
-            gt_buf, pr_buf = [], []
-
-        gt_buf.append(wave_gt[i, :])
-        pr_buf.append(wave_pr[i, :])
-        last_path = now_path
-        last_subject = now_subject
-
-    if gt_buf:
-        io.savemat(os.path.join(out_dir, last_subject + 'gt_Wave.mat'), {'Wave': np.array(gt_buf)})
-        io.savemat(os.path.join(out_dir, last_subject + 'pr_Wave.mat'), {'Wave': np.array(pr_buf)})
-
-    print(f'Wave_sort done: wrote per-subject files to {out_dir} (n_use={n_use})')
-
-
 try:
     wave_sort_out = os.path.join(args.wave_sort_root, Target_name, rPPGNet_name)
-    _wave_sort_from_index(Target_saveRoot, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+    utils.train_utils.wave_sort_from_index(Target_saveRoot, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 except Exception as e:
     print('Warning: Wave_sort failed:', repr(e))
 

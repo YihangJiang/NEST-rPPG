@@ -11,16 +11,22 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Repo root (one level up from NEST-rPPG)
 REPO_ROOT = os.path.dirname(BASE_DIR)
 
-# STMap data: at repo root (STMap_my/PURE_my, STMap_my/UBFC_my, etc.)
-STMAP_DATA_ROOT = os.path.join(REPO_ROOT, 'STMap_my')
-# Relative path from NEST-rPPG for scripts that use root_file
-STMAP_DATA_ROOT_REL = '../'
+# ===== SWITCH BLOCK: choose ONE of these two configs =====
+# Root for STMap data: parent of "STMap/" or "STMap_my/" so paths are root + FILEA_NAME[domain][0].
 
-# Centralized STMap indexes: NEST-rPPG/STMap_my/STMap_Index/<domain>
-STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
+# --- Option A: Use STMap_my (data at REPO_ROOT/STMap_my/...) ---
+# STMAP_PARENT_ROOT = REPO_ROOT
+# STMAP_DATA_ROOT = os.path.join(REPO_ROOT, 'STMap_my')
+# STMAP_DATA_ROOT_REL = '../'
+# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
 
-# For train_my region-aware index (separate layout)
-STMAP_INDEX_MY_REGIONS = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index_my_regions')
+# --- Option B: Use STMap (data at NEST-rPPG/STMap/..., i.e. BASE_DIR/STMap) ---
+STMAP_PARENT_ROOT = BASE_DIR
+STMAP_DATA_ROOT = os.path.join(BASE_DIR, 'STMap')
+STMAP_DATA_ROOT_REL = './'
+STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
+
+# ===== END SWITCH BLOCK =====
 
 # Output dirs (under NEST-rPPG)
 RESULT_DIR = os.path.join(BASE_DIR, 'Result')
@@ -29,13 +35,13 @@ WAVE_SORT_ROOT = os.path.join(BASE_DIR, 'Wave_sort')
 MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
-TGT_DOMAIN = 'PURE_my'   # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'UBFC_my'   # e.g. UBFC or UBFC_my (must match args.src; use UBFC_my if STMap/UBFC not present)
+TGT_DOMAIN = 'PURE'   # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'UBFC'   # e.g. UBFC or UBFC_my (must match args.src; use UBFC_my if STMap/UBFC not present)
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
-LOSS_TYPE = 'One'        # One / TA / CM / DM / All
+LOSS_TYPE = 'CM'        # One / TA / CM / DM / All
 
-# Mapping from target domain to list of possible source domains
+# Mapping from target domain to list of all possible source domains
 TARGET_DOMAIN = {
     'VIPL': ['V4V', 'PURE', 'BUAA', 'UBFC'],
     'V4V': ['VIPL', 'PURE', 'BUAA', 'UBFC'],
@@ -43,8 +49,10 @@ TARGET_DOMAIN = {
     'BUAA': ['VIPL', 'V4V', 'PURE', 'UBFC'],
     'UBFC': ['VIPL', 'V4V', 'PURE', 'BUAA'],
     # STMap_my variants (use _my sources when STMap/ not present)
-    'PURE_my': ['V4V', 'PURE', 'BUAA_my', 'UBFC_my'],
-    'UBFC_my': ['VIPL', 'V4V', 'PURE', 'BUAA_my'],
+    'PURE_my': ['BUAA_my', 'UBFC_my'],
+    'UBFC_my': ['PURE_my', 'BUAA_my'],
+    # train_my: test domain -> 3 source-region domains (order matters: cheek, target, eye)
+    'UBFC_my_in': ['PURE_my_rm', 'PURE_my_in', 'PURE_my_eye'],
 }
 
 # Data paths: PURE and UBFC use STMap_my (PURE_my, UBFC_my); others use STMap/
@@ -59,15 +67,16 @@ FILEA_NAME = {
     'PURE_my': ['STMap_my/PURE_my', 'PURE_my', 'STMap_RGB'],
     'UBFC_my': ['STMap_my/UBFC_my', 'UBFC_my', 'STMap_RGB'],
     'BUAA_my': ['STMap_my/BUAA_my', 'BUAA_my', 'STMap_RGB'],
+    # Region / subfolder variants used by train_my.py
+    'PURE_my_rm': ['STMap_my/PURE_my_rm', 'PURE_my_rm', 'STMap_RGB'],
+    'PURE_my_in': ['STMap_my/PURE_my_in', 'PURE_my_in', 'STMap_RGB'],
+    'PURE_my_eye': ['STMap_my/PURE_my_eye', 'PURE_my_eye', 'STMap_RGB'],
+    'UBFC_my_in': ['STMap_my/UBFC_my_in', 'UBFC_my_in', 'STMap_RGB'],
     # Row-analysis variant for PURE (still under STMap/ by design)
     'PURE_trans_row0': ['STMap/PURE_trans_row0', 'PURE_trans_row0', 'STMap'],
 }
 
-# ---------- train_my region config ----------
-CHEEK_ROOT = 'STMap_my/PURE_my_rm'
-TARGET_ROOT = 'STMap_my/PURE_my_in'
-EYE_ROOT = 'STMap_my/PURE_my_eye'
-UBFC_MY_ROOT = 'STMap_my/UBFC_my'
+# train_my uses domains above + TARGET_DOMAIN below to pick 3 source regions + 1 test region
 STMAP_NAME = 'STMap_RGB.png'
 EXP_NAME = 'PURE_my_region_align'
 
@@ -91,3 +100,12 @@ def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=No
         f"Spatial{spatial}Temporal{temporal}"
         f"_loss{loss_type}"
     )
+
+
+def canonical_data_name(domain: str) -> str:
+    """Map region-level domain to base dataset name used by MyDataset."""
+    if domain.startswith('PURE_my'):
+        return 'PURE_my'
+    if domain.startswith('UBFC_my'):
+        return 'UBFC_my'
+    return domain

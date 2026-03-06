@@ -253,7 +253,7 @@ def visualize_mat_waves(
 # %%
 # Config: set path to Wave_sort directory (gt/pr .mat pairs)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-save_path = "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/PURE_my/rPPGNet_PURE_my_srcUBFC_mySpatial0.5Temporal0.1_lossOne"
+save_path = "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/UBFC_my_in/rPPGNet_UBFC_my_in_srcPURE_my_in"
 # Name for first-level visualization subfolder under save_path/vis/.
 # Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/
 
