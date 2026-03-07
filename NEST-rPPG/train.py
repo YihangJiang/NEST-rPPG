@@ -23,49 +23,51 @@ from timeit import default_timer as timer
 import time
 import random
 from types import SimpleNamespace
+
+import config
 # %%
 
-TARGET_DOMAIN = {'VIPL': ['V4V',  'PURE', 'BUAA', 'UBFC'], \
-                 'V4V': ['VIPL',  'PURE', 'BUAA', 'UBFC'], \
-                 'PURE': ['VIPL', 'V4V', 'BUAA', 'UBFC'], \
-                 'BUAA': ['VIPL', 'V4V', 'PURE', 'UBFC'], \
-                 'UBFC': ['VIPL', 'V4V', 'PURE', 'BUAA']}
-
-FILEA_NAME = {'VIPL': ['VIPL', 'VIPL', 'STMap_RGB_Align_CSI'], \
-              'V4V': ['V4V', 'V4V', 'STMap_RGB'], \
-              'PURE': ['PURE', 'PURE', 'STMap'], \
-              'BUAA': ['BUAA', 'BUAA', 'STMap_RGB'], \
-              'UBFC': ['UBFC', 'UBFC', 'STMap']}
-
 # ============ Cell 1: Config (constants) – edit and run in Jupyter ============
-# True = use constants below (Jupyter). False = use command-line args (python train.py ...).
+# True = use config.py. False = use command-line args (python train.py ...).
 _USE_JUPYTER_CONFIG = True
 
 if _USE_JUPYTER_CONFIG:
     args = SimpleNamespace(
         GPU='0',
         num_workers=2,
-        epochs=64*64*64,
+        epochs=64 * 64 * 64,
         batchsize=100,
         lr=0.001,
         fold_num=5,
         fold_index=0,
         reTrain=0,
         reData=1,
-        max_iter=300,
+        max_iter=3000,
         seed=0,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
-        temporal_aug_rate=0.1,
-        spatial_aug_rate=0.5,
+        temporal_aug_rate=config.TEMPORAL_AUG_RATE,
+        spatial_aug_rate=config.SPATIAL_AUG_RATE,
         form='Resize',
         weight=36,
         height=36,
         frames_num=256,
-        tgt='UBFC',
-        src='PURE',
+        tgt=config.TGT_DOMAIN,
+        src=config.SRC_DOMAIN,
+        loss_type=config.LOSS_TYPE,
+        wave_sort_root=config.WAVE_SORT_ROOT,
     )
 else:
     args = utils.get_args()
+    for attr, default in [
+        ('loss_type', config.LOSS_TYPE),
+        ('tgt', config.TGT_DOMAIN),
+        ('src', config.SRC_DOMAIN),
+        ('temporal_aug_rate', config.TEMPORAL_AUG_RATE),
+        ('spatial_aug_rate', config.SPATIAL_AUG_RATE),
+        ('wave_sort_root', config.WAVE_SORT_ROOT),
+    ]:
+        if not hasattr(args, attr):
+            setattr(args, attr, default)
 # ============ End Cell 1 ============
 
 # ============ Cell 2: Training (run after config) ============
@@ -78,24 +80,25 @@ if getattr(args, 'src', None) is not None:
     Source_domain_Names = [args.src]
     print('Single source domain:', args.src)
 else:
-    Source_domain_Names = TARGET_DOMAIN[args.tgt]
+    Source_domain_Names = config.TARGET_DOMAIN[args.tgt]
 num_sources = len(Source_domain_Names)
-root_file = r'./STMap/'
+root_file = config.STMAP_PARENT_ROOT
+index_base = config.STMAP_INDEX_BASE
 # Build source configs (list of dicts: name, fileRoot, saveRoot, map)
 source_configs = []
 for name in Source_domain_Names:
-    fn = FILEA_NAME[name]
+    fn = config.FILEA_NAME[name]
     source_configs.append({
         'name': name,
-        'fileRoot': root_file + fn[0],
-        'saveRoot': root_file + 'STMap_Index/' + fn[1],
+        'fileRoot': os.path.join(root_file, fn[0]),
+        'saveRoot': os.path.join(index_base, fn[1]),
         'map': fn[2] + '.png'
     })
 
-FILE_Name = FILEA_NAME[args.tgt]
+FILE_Name = config.FILEA_NAME[args.tgt]
 Target_name = args.tgt
-Target_fileRoot = root_file + FILE_Name[0]
-Target_saveRoot = root_file + 'STMap_Index/' + FILE_Name[1]
+Target_fileRoot = os.path.join(root_file, FILE_Name[0])
+Target_saveRoot = os.path.join(index_base, FILE_Name[1])
 Target_map = FILE_Name[2] + '.png'
 
 # 训练参数
@@ -120,12 +123,16 @@ print('batch num:', batch_size_num, ' epoch_num:', epoch_num, ' GPU Inedex:', GP
 print(' frames num:', frames_num, ' learning rate:', learning_rate, )
 print('fold num:', frames_num, ' fold index:', fold_index)
 
-if not os.path.exists('./Result_log'):
-    os.makedirs('./Result_log')
-src_suffix = ('_src' + args.src) if getattr(args, 'src', None) else ''
-rPPGNet_name = 'rPPGNet_' + Target_name + src_suffix + 'Spatial' + str(args.spatial_aug_rate) + 'Temporal' + str(args.temporal_aug_rate)
+os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
+rPPGNet_name = config.build_run_name(
+    tgt=Target_name,
+    src=getattr(args, 'src', None),
+    spatial=getattr(args, 'spatial_aug_rate', None),
+    temporal=getattr(args, 'temporal_aug_rate', None),
+    loss_type=getattr(args, 'loss_type', None),
+)
 log = Logger()
-log.open('./Result_log/' + rPPGNet_name + '_log.txt', mode='a')
+log.open(os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt'), mode='a')
 log.write("\n----------------------------------------------- [START %s] %s\n\n" % (
     datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 
@@ -182,15 +189,16 @@ src_loaders = [DataLoader(db, batch_size=batch_size_num, shuffle=True, num_worke
 tgt_loader = DataLoader(Target_db, batch_size=batch_size_num, shuffle=False, num_workers=num_workers)
 print("--- Done.\n")
 
-# Save example figures: one sample per domain (STMap + BVP) to STMap_Index/example_fig/
-utils.train_utils.save_example_figures(root_file, tgt_loader, src_loaders, source_configs, Target_name, 
-                                       tgt_db=Target_db, source_dbs=source_dbs, target_map=Target_map)
+# Save example figures: one sample per domain (STMap + BVP)
+utils.train_utils.save_example_figures(root_file, tgt_loader, src_loaders, source_configs, Target_name,
+                                       tgt_db=Target_db, source_dbs=source_dbs, target_map=Target_map,
+                                       example_fig_dir=os.path.join(config.RESULT_LOG_DIR, 'example_fig'))
 
 # %%
 BaseNet = model.BaseNet()
 
 if reTrain == 1:
-    BaseNet = torch.load('./Result_Model/' + rPPGNet_name, map_location=device)
+    BaseNet = torch.load(os.path.join(config.MODEL_DIR, rPPGNet_name), map_location=device)
     print('load ' + rPPGNet_name + ' right')
 BaseNet.to(device=device)
 optimizer_rPPG = torch.optim.Adam(BaseNet.parameters(), lr=learning_rate)
@@ -222,11 +230,12 @@ for i, cfg in enumerate(source_configs):
 print("  Batch size:       ", batch_size_num)
 print("  Max iterations:   ", max_iter)
 print("  Frames per clip:  ", frames_num)
+print("  Loss type:        ", getattr(args, 'loss_type', config.LOSS_TYPE))
 print("  Device:           ", device)
 print("  Model:            ", BaseNet.__class__.__name__)
 total_src_samples = sum(len(db) for db in source_dbs)
 print("  Source samples:   ", total_src_samples, " (target: %d)" % len(Target_db))
-print("  Log file:         ", './Result_log/' + rPPGNet_name + '_log.txt')
+print("  Log file:         ", os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt'))
 print("=" * 60 + "\n")
 
 # Training
@@ -291,8 +300,19 @@ for iter_num in range(max_iter + 1):
     loss_DM = loss_func_NEST_DM(av, av_aug)
     loss_TA = loss_func_NEST_TA(torch.cat((av, av_aug), dim=0), torch.cat((HR_rels, HR_rel_augs), dim=0))
 
-    k = 2.0 / (1.0 + np.exp(-10.0 * iter_num / args.max_iter)) - 1.0
-    loss = src_loss_sum + 1*loss_TA
+    loss_type = getattr(args, 'loss_type', config.LOSS_TYPE)
+    if loss_type == 'One':
+        loss = src_loss_sum
+    elif loss_type == 'TA':
+        loss = src_loss_sum + loss_TA
+    elif loss_type == 'CM':
+        loss = src_loss_sum + loss_CM
+    elif loss_type == 'DM':
+        loss = src_loss_sum + loss_DM
+    elif loss_type == 'All':
+        loss = src_loss_sum + loss_TA + loss_CM + loss_DM
+    else:
+        loss = src_loss_sum + loss_TA
     if torch.sum(torch.isnan(loss)) > 0:
         print('Nan')
         break
@@ -329,16 +349,20 @@ for step, (data, bvp, HR_rel, _, _, _) in enumerate(tgt_loader):
     BVP_ALL.extend(Wave.data.cpu().numpy())
     BVP_PR_ALL.extend(Wave_pr.data.cpu().numpy())
 
-if not os.path.exists('./Result'):
-    os.makedirs('./Result')
-io.savemat('./Result/' + rPPGNet_name + 'HR_pr.mat', {'HR_pr': HR_pr_temp})
-io.savemat('./Result/' + rPPGNet_name + 'HR_rel.mat', {'HR_rel': HR_rel_temp})
-io.savemat('./Result/' + rPPGNet_name + 'WAVE_ALL.mat', {'Wave': BVP_ALL})
-io.savemat('./Result/' + rPPGNet_name + 'WAVE_PR_ALL.mat', {'Wave': BVP_PR_ALL})
-if not os.path.exists('./Result_Model'):
-    os.makedirs('./Result_Model')
-model_path = './Result_Model/' + rPPGNet_name
+os.makedirs(config.RESULT_DIR, exist_ok=True)
+io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'HR_pr.mat'), {'HR_pr': HR_pr_temp})
+io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'HR_rel.mat'), {'HR_rel': HR_rel_temp})
+io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'WAVE_ALL.mat'), {'Wave': BVP_ALL})
+io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
+os.makedirs(config.MODEL_DIR, exist_ok=True)
+model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
 torch.save(BaseNet, model_path)
 print('Saved model:', os.path.abspath(model_path))
+
+try:
+    wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, Target_name, rPPGNet_name)
+    utils.train_utils.wave_sort_from_index(Target_saveRoot, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+except Exception as e:
+    print('Warning: Wave_sort failed:', repr(e))
 
 # %%
