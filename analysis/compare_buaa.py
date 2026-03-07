@@ -15,12 +15,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 # %%
-# ===== Part 1: Compare landmark CSVs (NEST-rPPG/STMap/BUAA vs BUAA_my) =====
+# ===== Part 1: Compare landmark CSVs (STMap/BUAA vs BUAA_my) =====
 print("=" * 60)
-print("PART 1: Comparing landmark CSVs (NEST-rPPG/STMap/BUAA vs BUAA_my)")
+print("PART 1: Comparing landmark CSVs (STMap/BUAA vs BUAA_my)")
 print("=" * 60)
 
-STMAP_BUAA_ROOT = os.path.join(PROJECT_ROOT, "NEST-rPPG", "STMap", "BUAA")
+STMAP_BUAA_ROOT = os.path.join(PROJECT_ROOT, "STMap", "BUAA")
 BUAA_MY_ROOT = os.path.join(PROJECT_ROOT, "STMap_my", "BUAA_my")
 
 
@@ -63,7 +63,7 @@ def compare_lmk_pair(path_a, path_b, tag):
     print(f"  Max diff:    {max_diff:.6f}")
     print(f"  MAE per frame: min={mae_per_frame.min():.6f}, max={mae_per_frame.max():.6f}, mean={mae_per_frame.mean():.6f}")
 
-# Iterate over all folders and compare landmarks between NEST-rPPG/STMap/BUAA and BUAA_my
+# Iterate over all folders and compare landmarks between STMap/BUAA and BUAA_my
 if not os.path.isdir(STMAP_BUAA_ROOT):
     print("STMap BUAA root not found:", STMAP_BUAA_ROOT)
 elif not os.path.isdir(BUAA_MY_ROOT):
@@ -90,10 +90,10 @@ else:
         stmap_label = os.path.join(STMAP_BUAA_ROOT, name, "Label", "RGB_lmk.csv")
         my_label = os.path.join(BUAA_MY_ROOT, name, "Label", "RGB_lmk.csv")
         if os.path.isfile(stmap_label) and os.path.isfile(my_label):
-            compare_lmk_pair(stmap_label, my_label, tag=f"{name} (NEST-rPPG/STMap/BUAA vs BUAA_my)")
+            compare_lmk_pair(stmap_label, my_label, tag=f"{name} (STMap/BUAA vs BUAA_my)")
         elif not os.path.isfile(stmap_label):
             print(f"\n--- {name} ---")
-            print(f"Missing NEST-rPPG/STMap/BUAA label: {stmap_label}")
+            print(f"Missing STMap/BUAA label: {stmap_label}")
         elif not os.path.isfile(my_label):
             print(f"\n--- {name} ---")
             print(f"Missing BUAA_my label: {my_label}")
@@ -102,7 +102,7 @@ else:
     only_stmap = sorted(stmap_folders - my_folders)
     only_my = sorted(my_folders - stmap_folders)
     if only_stmap:
-        print(f"\nFolders only in NEST-rPPG/STMap/BUAA ({len(only_stmap)}): {only_stmap[:10]}{'...' if len(only_stmap) > 10 else ''}")
+        print(f"\nFolders only in STMap/BUAA ({len(only_stmap)}): {only_stmap[:10]}{'...' if len(only_stmap) > 10 else ''}")
     if only_my:
         print(f"\nFolders only in BUAA_my ({len(only_my)}): {only_my[:10]}{'...' if len(only_my) > 10 else ''}")
 
@@ -204,7 +204,7 @@ def compare_stmap_pair(path_a, path_b, tag):
         return None, None, None
 
 
-# Compare STMaps: NEST-rPPG/STMap/BUAA vs BUAA_my
+# Compare STMaps: STMap/BUAA vs BUAA_my
 if os.path.isdir(STMAP_BUAA_ROOT) and os.path.isdir(BUAA_MY_ROOT):
     # Get common folders
     stmap_folders = set()
@@ -225,15 +225,15 @@ if os.path.isdir(STMAP_BUAA_ROOT) and os.path.isdir(BUAA_MY_ROOT):
         my_stmap = os.path.join(BUAA_MY_ROOT, name, "STMap", "STMap_RGB.png")
 
         if os.path.isfile(stmap_stmap) and os.path.isfile(my_stmap):
-            compare_stmap_pair(stmap_stmap, my_stmap, tag=f"{name} (NEST-rPPG/STMap/BUAA vs BUAA_my)")
+            compare_stmap_pair(stmap_stmap, my_stmap, tag=f"{name} (STMap/BUAA vs BUAA_my)")
             stmap_count += 1
         elif not os.path.isfile(stmap_stmap):
             print(f"\n--- {name} ---")
             print(f"  STMap found in BUAA_my: {my_stmap}")
-            print(f"  Missing in NEST-rPPG/STMap/BUAA: {stmap_stmap}")
+            print(f"  Missing in STMap/BUAA: {stmap_stmap}")
         elif not os.path.isfile(my_stmap):
             print(f"\n--- {name} ---")
-            print(f"  STMap found in NEST-rPPG/STMap/BUAA: {stmap_stmap}")
+            print(f"  STMap found in STMap/BUAA: {stmap_stmap}")
             print(f"  Missing in BUAA_my: {my_stmap}")
 
     if stmap_count == 0:
@@ -242,9 +242,9 @@ if os.path.isdir(STMAP_BUAA_ROOT) and os.path.isdir(BUAA_MY_ROOT):
         print(f"\nCompared {stmap_count} STMap pairs.")
 
 # %%
-# ===== Part 4: Compare BVP label .mat files (NEST-rPPG/STMap/BUAA vs BUAA_my) =====
+# ===== Part 4: Compare BVP label .mat files (STMap/BUAA vs BUAA_my) =====
 print("\n" + "=" * 60)
-print("PART 4: Comparing BVP label .mat files (NEST-rPPG/STMap/BUAA vs BUAA_my)")
+print("PART 4: Comparing BVP label .mat files (STMap/BUAA vs BUAA_my)")
 print("=" * 60)
 
 def compare_bvp_mat_pair(path_a, path_b, tag, signal_name='BVP'):
@@ -294,7 +294,7 @@ def plot_bvp_comparison(signal_a, signal_b, subject_name, signal_type, save_dir)
     
     # Figure 1: Overlay plot
     fig1, ax1 = plt.subplots(figsize=(12, 4))
-    ax1.plot(t, signal_a, label='NEST-rPPG/STMap/BUAA', alpha=0.7, linewidth=1)
+    ax1.plot(t, signal_a, label='STMap/BUAA', alpha=0.7, linewidth=1)
     ax1.plot(t, signal_b, label='BUAA_my', alpha=0.7, linewidth=1)
     ax1.set_xlabel('Frame index')
     ax1.set_ylabel('BVP value')
@@ -354,7 +354,7 @@ if os.path.isdir(STMAP_BUAA_ROOT) and os.path.isdir(BUAA_MY_ROOT):
         my_bvp = os.path.join(my_label_dir, "BVP.mat")
         if os.path.isfile(stmap_bvp) and os.path.isfile(my_bvp):
             mae, rmse, max_d, sig_a, sig_b = compare_bvp_mat_pair(
-                stmap_bvp, my_bvp, tag=f"{name} (BVP.mat: NEST-rPPG/STMap/BUAA vs BUAA_my)", signal_name='BVP')
+                stmap_bvp, my_bvp, tag=f"{name} (BVP.mat: STMap/BUAA vs BUAA_my)", signal_name='BVP')
             if sig_a is not None and sig_b is not None:
                 overlay_path, diff_path = plot_bvp_comparison(sig_a, sig_b, name, 'BVP', FIGURES_DIR)
                 print(f"    Saved: {overlay_path}")
@@ -366,7 +366,7 @@ if os.path.isdir(STMAP_BUAA_ROOT) and os.path.isdir(BUAA_MY_ROOT):
         my_bvp_filt = os.path.join(my_label_dir, "BVP_Filt.mat")
         if os.path.isfile(stmap_bvp_filt) and os.path.isfile(my_bvp_filt):
             mae, rmse, max_d, sig_a, sig_b = compare_bvp_mat_pair(
-                stmap_bvp_filt, my_bvp_filt, tag=f"{name} (BVP_Filt.mat: NEST-rPPG/STMap/BUAA vs BUAA_my)", signal_name='BVP')
+                stmap_bvp_filt, my_bvp_filt, tag=f"{name} (BVP_Filt.mat: STMap/BUAA vs BUAA_my)", signal_name='BVP')
             if sig_a is not None and sig_b is not None:
                 overlay_path, diff_path = plot_bvp_comparison(sig_a, sig_b, name, 'BVP_Filt', FIGURES_DIR)
                 print(f"    Saved: {overlay_path}")

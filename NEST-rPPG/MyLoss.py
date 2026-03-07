@@ -214,23 +214,26 @@ def get_loss(bvp_pre, hr_pre, bvp_gt, hr_gt, dataName, \
     k = 2.0 / (1.0 + np.exp(-10.0 * inter_num/args.max_iter)) - 1.0
 
     k1, k2, k3, k4, k5, k6, k7, k8 = args.k1, k*args.k2, args.k3, k*args.k4, args.k5, k*args.k6, k*args.k7, k*args.k8
+
     # HR loss commented out; only signal (BVP) loss is used.
-    if dataName == 'PURE':
+    if dataName.startswith('PURE'):
         loss = k1 * loss_sig0(bvp_pre, bvp_gt)
         # loss = (k1*loss_sig0(bvp_pre, bvp_gt) + k2*loss_hr(torch.squeeze(hr_pre), hr_gt))/2
-    elif dataName == 'UBFC':
+    elif dataName.startswith('UBFC'):
         loss = k3 * loss_sig0(bvp_pre, bvp_gt)
         # loss = (k3 * loss_sig0(bvp_pre, bvp_gt) + k4 * loss_hr(torch.squeeze(hr_pre), hr_gt))/2
-    elif dataName == 'BUAA':
+    elif dataName.startswith('BUAA'):
         loss = k5 * loss_sig0(bvp_pre, bvp_gt)
         # loss = (k5 * loss_sig0(bvp_pre, bvp_gt) + k6 * loss_hr(torch.squeeze(hr_pre), hr_gt))/2
-    elif dataName == 'VIPL':
+    elif dataName.startswith('VIPL'):
         loss = k7 * loss_sig0(bvp_pre, bvp_gt)
         # loss = k7 * loss_hr(torch.squeeze(hr_pre), hr_gt)
-    elif dataName == 'V4V':
+    elif dataName.startswith('V4V'):
         # V4V has no BVP label (bvp_gt is placeholder); signal loss not applicable.
         loss = torch.tensor(0.0, device=bvp_pre.device, dtype=bvp_pre.dtype)
         # loss = k8 * loss_hr(torch.squeeze(hr_pre), hr_gt)
+    else:
+        raise ValueError(f"get_loss: unknown dataName '{dataName}'")
 
     if torch.sum(torch.isnan(loss)) > 0:
         print('Tere in nan loss found in' + dataName)

@@ -1,6 +1,6 @@
 # %%
 """
-Compare Label .mat files (and optionally landmarks) between NEST-rPPG/STMap/PURE and STMap_my/PURE_my.
+Compare Label .mat files (and optionally landmarks) between STMap/PURE and STMap_my/PURE_my.
 Reports whether PURE_my and PURE labels match (per session and overall).
 Generates overlay and difference figures per session for BVP, BVP_Filt, HR, SPO2.
 """
@@ -14,7 +14,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 # Roots
-NEST_PURE_ROOT = os.path.join(PROJECT_ROOT, "NEST-rPPG", "STMap", "PURE")
+NEST_PURE_ROOT = os.path.join(PROJECT_ROOT, "STMap", "PURE")
 PURE_MY_ROOT = os.path.join(PROJECT_ROOT, "STMap_my", "PURE_my")
 
 # Tolerance for "match": max allowed MAE for float signals; timestamps must match exactly or within 1
@@ -100,7 +100,7 @@ def plot_signal_comparison(signal_a, signal_b, session_name, signal_type, save_d
 
     # Overlay
     fig1, ax1 = plt.subplots(figsize=(12, 4))
-    ax1.plot(t, a, label="NEST-rPPG/STMap/PURE", alpha=0.7, linewidth=1)
+    ax1.plot(t, a, label="STMap/PURE", alpha=0.7, linewidth=1)
     ax1.plot(t, b, label="PURE_my", alpha=0.7, linewidth=1)
     ax1.set_xlabel("Frame index")
     ax1.set_ylabel(ylabel)
@@ -143,7 +143,7 @@ def load_lmk_csv(path):
 
 # %%
 print("=" * 60)
-print("PURE label comparison: NEST-rPPG/STMap/PURE vs STMap_my/PURE_my")
+print("PURE label comparison: STMap/PURE vs STMap_my/PURE_my")
 print("=" * 60)
 
 # Collect common session names (folder names in both roots)
@@ -255,7 +255,7 @@ print(f"  Sessions compared: {total}")
 print(f"  Sessions with all signals matching (MAE <= {MATCH_MAE_TOLERANCE}): {all_match_sessions}")
 
 if total == 0:
-    print("\n  No common sessions to compare. Check NEST-rPPG/STMap/PURE and STMap_my/PURE_my folder names.")
+    print("\n  No common sessions to compare. Check STMap/PURE and STMap_my/PURE_my folder names.")
 elif all_match_sessions == total:
     print("\n  YES – PURE_my and PURE labels match for all compared sessions.")
 else:

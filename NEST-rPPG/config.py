@@ -11,22 +11,21 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Repo root (one level up from NEST-rPPG)
 REPO_ROOT = os.path.dirname(BASE_DIR)
 
-# ===== SWITCH BLOCK: choose ONE root layout =====
+# ===== SWITCH BLOCK: choose ONE dataset layout =====
+# Both STMap and STMap_my now live under REPO_ROOT, so we only switch the folder name.
 # Comment out the block you are NOT using.
-# - Option A: STMap_my (PURE_my, UBFC_my) — data at REPO_ROOT/STMap_my/ or BASE_DIR/STMap_my/
-# - Option B: STMap (PURE, UBFC, etc.) — data at BASE_DIR/STMap/
 
-# --- Option A: STMap_my (uncomment and comment Option B to use PURE_my / UBFC_my) ---
-# STMAP_PARENT_ROOT = REPO_ROOT   # use REPO_ROOT if STMap_my is at repo root; else BASE_DIR
-# STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
+# --- Option A: Use original STMap (PURE, UBFC, BUAA, VIPL, V4V) at REPO_ROOT/STMap/... ---
+# STMAP_PARENT_ROOT = REPO_ROOT
+# STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap')
 # STMAP_DATA_ROOT_REL = '../'
-# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
+# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
 
-# --- Option B: STMap ---
-STMAP_PARENT_ROOT = BASE_DIR
-STMAP_DATA_ROOT = os.path.join(BASE_DIR, 'STMap')
-STMAP_DATA_ROOT_REL = './'
-STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
+# --- Option B: Use STMap_my (PURE_my, UBFC_my, BUAA_my, regions) at REPO_ROOT/STMap_my/... ---
+STMAP_PARENT_ROOT = REPO_ROOT
+STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
+STMAP_DATA_ROOT_REL = '../'
+STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
 
 # ===== END SWITCH BLOCK =====
 
@@ -38,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'PURE'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'UBFC'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC_my'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'All'         # One / TA / CM / DM / All

@@ -17,7 +17,6 @@ import config
 
 FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
-VIS_RUN_NAME = config.LOSS_TYPE  # Use shared LOSS_TYPE from config
 
 
 # %%
@@ -252,18 +251,18 @@ def visualize_mat_waves(
 
 # %%
 # Config: set path to Wave_sort directory (gt/pr .mat pairs)
-# Point to the folder that contains *gt_Wave.mat and *pr_Wave.mat for the run you want to evaluate
-save_path = os.path.join(config.WAVE_SORT_ROOT, "PURE", "rPPGNet_PURE_srcUBFCSpatial0.5Temporal0.1_lossCM")
-
+# Use config parameters so this stays in sync with train.py.
+run_name = config.build_run_name()  # e.g. rPPGNet_PURE_srcUBFCSpatial0.5Temporal0.1_lossCM
+save_path = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, run_name)
 # Name for first-level visualization subfolder under save_path/vis/.
-# Final structure: Wave_sort/PURE/vis/<VIS_RUN_NAME>/<subject_id>/
+# Final structure: Wave_sort/<TGT_DOMAIN>/vis/<VIS_RUN_NAME>/<subject_id>/
 
 # %%
 # Optional: visualize waves before evaluation (uncomment and run)
 pairs = visualize_mat_waves(
     save_path,
     segment_indices=[3, 5],
-    vis_run_name=VIS_RUN_NAME,
+    vis_run_name=config.LOSS_TYPE,
 )
 # %%
 import numpy as np

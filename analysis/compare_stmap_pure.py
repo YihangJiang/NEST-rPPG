@@ -1,6 +1,6 @@
 # %%
 """
-Compare STMap image *content* (not just names) between NEST-rPPG/STMap/PURE and STMap_my/PURE_my.
+Compare STMap image *content* (not just names) between STMap/PURE and STMap_my/PURE_my.
 Reports shape, frame count, and pixel-level differences; saves pixel value distribution comparison figures.
 """
 import os
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-NEST_PURE_ROOT = os.path.join(PROJECT_ROOT, "NEST-rPPG", "STMap", "PURE")
+NEST_PURE_ROOT = os.path.join(PROJECT_ROOT, "STMap", "PURE")
 PURE_MY_ROOT = os.path.join(PROJECT_ROOT, "STMap_my", "PURE_my")
 
 

@@ -1,6 +1,6 @@
 # %%
 """
-Compare STMap image *content* (not just names) between NEST-rPPG/STMap/UBFC and STMap_my/UBFC_my.
+Compare STMap image *content* (not just names) between STMap/UBFC and STMap_my/UBFC_my.
 Reports shape, frame count, and pixel-level differences; saves pixel value distribution comparison figures.
 """
 import os
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-NEST_UBFC_ROOT = os.path.join(PROJECT_ROOT, "NEST-rPPG", "STMap", "UBFC")
+NEST_UBFC_ROOT = os.path.join(PROJECT_ROOT, "STMap", "UBFC")
 UBFC_MY_ROOT = os.path.join(PROJECT_ROOT, "STMap_my", "UBFC_my")
 
 

@@ -125,6 +125,25 @@ class Data_DG(Dataset):
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
             gt = gt.astype('float32')
 
+        elif self.dataName in ('PURE_my', 'UBFC_my', 'BUAA_my', 'PURE_my_rm', 'PURE_my_in', 'PURE_my_eye', 'UBFC_my_in'):
+            # STMap_my variants: same label layout as PURE/UBFC (Label/BVP.mat, Label/HR.mat)
+            bvp_name = 'Label/BVP.mat'
+            bvp_path = os.path.join(nowPath, bvp_name)
+            bvp = scio.loadmat(bvp_path)['BVP']
+            bvp = np.array(bvp.astype('float32')).reshape(-1)
+            bvp = bvp[Step_Index:Step_Index + self.frames_num]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
+            bvp = bvp.astype('float32')
+            gt_name = 'Label/HR.mat'
+            gt_path = os.path.join(nowPath, gt_name)
+            gt = scio.loadmat(gt_path)['HR']
+            gt = np.array(gt.astype('float32')).reshape(-1)
+            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = gt.astype('float32')
+
+        else:
+            raise ValueError(f"getLabel: unknown dataName '{self.dataName}'")
+
         return gt, bvp
 
     def __getitem__(self, idx):
