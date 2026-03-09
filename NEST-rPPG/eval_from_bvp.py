@@ -17,6 +17,7 @@ import config
 
 FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
+save_path = config.EVAL_SAVE_PATH
 
 
 # %%
@@ -250,10 +251,7 @@ def visualize_mat_waves(
 
 
 # %%
-# Config: set path to Wave_sort directory (gt/pr .mat pairs)
-# Use config parameters so this stays in sync with train.py.
-run_name = config.build_run_name()  # e.g. rPPGNet_PURE_srcUBFCSpatial0.5Temporal0.1_lossCM
-save_path = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, run_name)
+# Path to Wave_sort directory (gt/pr .mat pairs). Set Option A or B in config.EVAL_SAVE_PATH.
 # Name for first-level visualization subfolder under save_path/vis/.
 # Final structure: Wave_sort/<TGT_DOMAIN>/vis/<VIS_RUN_NAME>/<subject_id>/
 

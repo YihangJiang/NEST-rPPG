@@ -37,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'PURE_my'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'UBFC_my'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC_my'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
@@ -111,3 +111,15 @@ def canonical_data_name(domain: str) -> str:
     if domain.startswith('UBFC_my'):
         return 'UBFC_my'
     return domain
+
+
+# ===== EVAL_SAVE_PATH: choose ONE for eval_from_bvp =====
+# Comment out the option you are NOT using.
+
+# --- Option A: train.py output (WAVE_SORT_ROOT / TGT_DOMAIN / build_run_name()) ---
+EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, TGT_DOMAIN, build_run_name())
+
+# --- Option B: train_regions output (set test_domain and run name to match your regions run) ---
+# EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, 'UBFC_my_in', 'rPPGNet_UBFC_my_in_srcPURE_my_in')
+
+# ===== END EVAL_SAVE_PATH =====
