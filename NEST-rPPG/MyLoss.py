@@ -126,21 +126,44 @@ class NEST_CM(nn.Module):
         super().__init__()
     def forward(self, av, ratio=0.1):
 
-        s0 = torch.linalg.svdvals(av[:, 0:64])
-        s0 = torch.div(s0, torch.sum(s0))
-        cov_loss0 = torch.sum(s0[s0 < (ratio/64)])
+        # av is (batch_size, 960). We divide it into 4 blocks of channels.
+        blocks = [
+            ("b0", av[:, 0:64], 64),
+            ("b1", av[:, 64:192], 128),
+            ("b2", av[:, 192:448], 256),
+            ("b3", av[:, 448:960], 512),
+        ]
 
-        s1 = torch.linalg.svdvals(av[:, 64:192])
-        s1 = torch.div(s1, torch.sum(s1))
-        cov_loss1 = torch.sum(s1[s1 < (ratio/128)])
+        cov_losses = []
+        for name, block, dim in blocks:
+            try:
+                s = torch.linalg.svdvals(block)
+            except Exception as e:
+                # Print diagnostics if SVD fails on this block
+                with torch.no_grad():
+                    block_cpu = block.detach().float().cpu()
+                    max_abs = float(block_cpu.abs().max())
+                    nan_count = int(torch.isnan(block_cpu).sum())
+                    # print(f"[NEST_CM] SVD failure on {name} shape={tuple(block.shape)} "
+                    #       f"max|x|={max_abs:.4e} nan_count={nan_count} error={repr(e)}")
+                raise
 
-        s2 = torch.linalg.svdvals(av[:, 192:448])
-        s2 = torch.div(s2, torch.sum(s2))
-        cov_loss2 = torch.sum(s2[s2 < (ratio / 256)])
+            # Condition estimate (before normalization)
+            with torch.no_grad():
+                s_cpu = s.detach().float().cpu()
+                s_min = float(s_cpu.min())
+                s_max = float(s_cpu.max())
+                s_sum = float(s_cpu.sum())
+                cond = s_max / (s_min + 1e-12) if s_min > 0 else float("inf")
+                # print(f"[NEST_CM] {name} svdvals: shape={tuple(block.shape)} "
+                #       f"sum={s_sum:.4e} min={s_min:.4e} max={s_max:.4e} cond~={cond:.4e}")
 
-        s3 = torch.linalg.svdvals(av[:, 448:960])
-        s3 = torch.div(s3, torch.sum(s3))
-        cov_loss3 = torch.sum(s3[s3 < (ratio / 512)])
+            s = torch.div(s, torch.sum(s))
+            thr = ratio / float(dim)
+            cov_loss = torch.sum(s[s < thr])
+            cov_losses.append(cov_loss)
+
+        cov_loss0, cov_loss1, cov_loss2, cov_loss3 = cov_losses
 
         return (cov_loss0 + cov_loss1 + cov_loss2 + cov_loss3)/4
     

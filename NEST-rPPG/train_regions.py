@@ -10,6 +10,7 @@
 
 import os
 from types import SimpleNamespace
+
 from datetime import datetime
 from timeit import default_timer as timer
 import torch
@@ -42,22 +43,21 @@ if _USE_JUPYTER_CONFIG:
         GPU='0',
         num_workers=2,
         epochs=50,
-        batchsize=64,
+        batchsize=100,
         lr=0.001,
-        max_iter=400,          # total training iterations (like train.py)
+        max_iter=3000,          # total training iterations (like train.py)
         seed=0,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
         spatial_aug_rate=config.SPATIAL_AUG_RATE,
+        loss_type=config.LOSS_TYPE,  # One / TA / CM / DM / All
         frames_num=256,
         # Domains (paths resolved via config.FILEA_NAME)
         test_domain='UBFC_my_in',
+        # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[test_domain][1], i.e., *_in)
+        source_domain=None,
         stmap_name=config.STMAP_NAME,
         index_root=config.STMAP_INDEX_BASE,  # index root (subfolders are domain names)
-        # Region alignment loss weights
-        lambda_align=0.5,
-        lambda_sep=0.5,
-        triplet_margin=0.5,
         # Logging / model name suffix
         exp_name=config.EXP_NAME,
         # Wave_sort root (for per-subject BVP files)
@@ -70,22 +70,20 @@ else:
         args.frames_num = 256
     if not hasattr(args, 'test_domain'):
         args.test_domain = 'UBFC_my_in'
+    if not hasattr(args, 'source_domain'):
+        args.source_domain = None
     if not hasattr(args, 'stmap_name'):
         args.stmap_name = config.STMAP_NAME
     if not hasattr(args, 'index_root'):
         args.index_root = config.STMAP_INDEX_BASE
     if not hasattr(args, 'max_iter'):
         args.max_iter = 3000
-    if not hasattr(args, 'lambda_align'):
-        args.lambda_align = 0.5
-    if not hasattr(args, 'lambda_sep'):
-        args.lambda_sep = 0.5
-    if not hasattr(args, 'triplet_margin'):
-        args.triplet_margin = 0.5
     if not hasattr(args, 'exp_name'):
         args.exp_name = config.EXP_NAME
     if not hasattr(args, 'wave_sort_root'):
         args.wave_sort_root = config.WAVE_SORT_ROOT
+    if not hasattr(args, 'loss_type'):
+        args.loss_type = config.LOSS_TYPE
 
 # ============ End Cell 1 ============
 
@@ -96,37 +94,57 @@ print("=" * 60)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-# 3 source-region domains (order matters: cheek, target, eye) + 1 test domain
+# Baseline: only `_in` ROI is used for training,
+# but we still keep all three region domains (cheek, target, eye) loaded
+# so it is easy to plug in region-specific logic later.
+# - test domain: args.test_domain (e.g. UBFC_my_in)
+# - 3 region domains for this test domain: cheek, target, eye
 src_domains = config.TARGET_DOMAIN[args.test_domain]
-cheek_domain, target_domain, eye_domain = src_domains[0], src_domains[1], src_domains[2]
+cheek_domain, target_region_domain, eye_domain = src_domains[0], src_domains[1], src_domains[2]
 
-cheek_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[cheek_domain][0])
-target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[target_domain][0])
-eye_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[eye_domain][0])
-ubfc_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[args.test_domain][0])
+# For later region-aware methods, treat:
+# - pos_domain: typically the cheek region (e.g. PURE_my_rm)
+# - neg_domain: typically the eye region  (e.g. PURE_my_eye)
+pos_domain = cheek_domain
+neg_domain = eye_domain
+
+# Baseline source domain (ROI "_in"): allow override via args.source_domain
+default_source_domain = target_region_domain
+source_domain = args.source_domain or default_source_domain
+
+# Roots for each region domain and test domain
+region_domains = [cheek_domain, target_region_domain, eye_domain]
+region_roots = {
+    d: os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[d][0])
+    for d in region_domains
+}
+target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[args.test_domain][0])
 index_root = args.index_root
 
-cheek_index_dir = os.path.join(index_root, cheek_domain)
-target_index_dir = os.path.join(index_root, target_domain)
-eye_index_dir = os.path.join(index_root, eye_domain)
-ubfc_index_dir = os.path.join(index_root, args.test_domain)
+# Index dirs for each region and for the test domain
+region_index_dirs = {d: os.path.join(index_root, d) for d in region_domains}
+source_index_dir = region_index_dirs[source_domain]
+target_index_dir = os.path.join(index_root, args.test_domain)
 
 frames_num = args.frames_num
 batch_size = args.batchsize
 num_workers = args.num_workers
 GPU = args.GPU
 
-print("Source region domains (train):", src_domains)
+print("Source region domains (config.TARGET_DOMAIN[test]):", src_domains)
 print("Test domain:", args.test_domain)
-print("Region STMap roots (train):")
-print("  cheek :", cheek_root)
-print("  target:", target_root)
-print("  eye   :", eye_root)
-print("Test STMap root:", ubfc_root)
+print("Baseline training domains (train.py-style):")
+print("  source_domain:", source_domain)
+print("  test_domain  :", args.test_domain)
+print("Region STMap roots:")
+print("  cheek (pos_domain):", region_roots[cheek_domain])
+print("  target          :", region_roots[target_region_domain])
+print("  eye   (neg_domain):", region_roots[eye_domain])
+print("Test STMap root:", target_root)
 print("Index root:", index_root)
 
 os.makedirs(index_root, exist_ok=True)
-
+# %%
 def _build_index_if_needed(root_dir, index_dir, stmap_name, label):
     if not os.path.isdir(root_dir):
         raise FileNotFoundError(f"{label} root not found: {root_dir}")
@@ -137,35 +155,75 @@ def _build_index_if_needed(root_dir, index_dir, stmap_name, label):
     else:
         print(f"Using existing index for {label}: {index_dir}")
 
-_build_index_if_needed(cheek_root, cheek_index_dir, args.stmap_name, cheek_domain)
-_build_index_if_needed(target_root, target_index_dir, args.stmap_name, target_domain)
-_build_index_if_needed(eye_root, eye_index_dir, args.stmap_name, eye_domain)
-_build_index_if_needed(ubfc_root, ubfc_index_dir, args.stmap_name, args.test_domain)
+# Build / reuse indexes for all three region domains (cheek, target, eye)
+for d in region_domains:
+    _build_index_if_needed(region_roots[d], region_index_dirs[d], args.stmap_name, d)
+
+# And for the test domain (target of evaluation)
+_build_index_if_needed(target_root, target_index_dir, args.stmap_name, args.test_domain)
 
 print("Loading datasets...")
 
-cheek_db = MyDataset.Data_DG(root_dir=cheek_index_dir, dataName=config.canonical_data_name(cheek_domain),
-                             STMap=args.stmap_name, frames_num=frames_num, args=args)
-target_db = MyDataset.Data_DG(root_dir=target_index_dir, dataName=config.canonical_data_name(target_domain),
-                              STMap=args.stmap_name, frames_num=frames_num, args=args)
-eye_db = MyDataset.Data_DG(root_dir=eye_index_dir, dataName=config.canonical_data_name(eye_domain),
-                           STMap=args.stmap_name, frames_num=frames_num, args=args)
-ubfc_db = MyDataset.Data_DG(root_dir=ubfc_index_dir, dataName=config.canonical_data_name(args.test_domain),
-                            STMap=args.stmap_name, frames_num=frames_num, args=args)
+# Region datasets (cheek/target/eye), kept for future region-specific training logic
+region_db_list = []
+for d in region_domains:
+    db = MyDataset.Data_DG(
+        root_dir=region_index_dirs[d],
+        dataName=config.canonical_data_name(d),
+        STMap=args.stmap_name,
+        frames_num=frames_num,
+        args=args
+    )
+    region_db_list.append(db)
+    print(f"  region dataset {d}: num_samples = {len(db)}")
 
-print("  cheek dataset (PURE_my_rm) :", len(cheek_db))
-print("  target dataset (PURE_my_in):", len(target_db))
-print("  eye dataset (PURE_my_eye)  :", len(eye_db))
-print("  test dataset (UBFC_my)     :", len(ubfc_db))
+# Explicit references for positive/negative region datasets
+pos_db = MyDataset.Data_DG(
+    root_dir=region_index_dirs[pos_domain],
+    dataName=config.canonical_data_name(pos_domain),
+    STMap=args.stmap_name,
+    frames_num=frames_num,
+    args=args
+)
+neg_db = MyDataset.Data_DG(
+    root_dir=region_index_dirs[neg_domain],
+    dataName=config.canonical_data_name(neg_domain),
+    STMap=args.stmap_name,
+    frames_num=frames_num,
+    args=args
+)
+print("  pos_domain dataset:", pos_domain, "num_samples =", len(pos_db))
+print("  neg_domain dataset:", neg_domain, "num_samples =", len(neg_db))
 
-print("Creating DataLoaders (shuffle=False to keep PURE triplets aligned)...")
-cheek_loader = DataLoader(cheek_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-target_loader = DataLoader(target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-eye_loader = DataLoader(eye_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-ubfc_loader = DataLoader(ubfc_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+# Baseline: single source + single target (test) domains, used in training loop
+source_db = MyDataset.Data_DG(
+    root_dir=source_index_dir,
+    dataName=config.canonical_data_name(source_domain),
+    STMap=args.stmap_name,
+    frames_num=frames_num,
+    args=args
+)
+target_db = MyDataset.Data_DG(
+    root_dir=target_index_dir,
+    dataName=config.canonical_data_name(args.test_domain),
+    STMap=args.stmap_name,
+    frames_num=frames_num,
+    args=args
+)
 
-steps_per_epoch = min(len(cheek_loader), len(target_loader), len(eye_loader))
-print(f"steps_per_epoch = {steps_per_epoch}")
+print("  baseline source dataset:", source_domain, "num_samples =", len(source_db))
+print("  baseline test dataset  :", args.test_domain, "num_samples =", len(target_db))
+
+print("Creating DataLoaders (baseline like train.py)...")
+src_loader = DataLoader(source_db, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+tgt_loader = DataLoader(target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+# Dataloaders for pos/neg domains (not used yet in baseline, but available)
+pos_loader = DataLoader(pos_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+neg_loader = DataLoader(neg_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+steps_per_epoch = len(src_loader)
+print(f"steps_per_epoch (source) = {steps_per_epoch}")
 print("=" * 60)
 
 # %%
@@ -182,18 +240,23 @@ BaseNet = model.BaseNet().to(device=device)
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
 loss_func_NP = MyLoss.P_loss3().to(device)
 loss_func_L1 = nn.L1Loss().to(device)
-
-lambda_align = args.lambda_align
-lambda_sep = args.lambda_sep
-margin = args.triplet_margin
+loss_func_SP = MyLoss.SP_loss(device, clip_length=frames_num).to(device)
+loss_func_NEST_CM = MyLoss.NEST_CM().to(device)
+loss_func_NEST_DM = MyLoss.NEST_DM().to(device)
+loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8).to(device)
 
 # Logging & model name (use config paths)
 os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
 
 # Naming: rPPGNet_<test_domain>_src<target_region> (e.g. rPPGNet_UBFC_my_in_srcPURE_my_in)
 Target_name = args.test_domain
-src_suffix = '_src' + src_domains[1]
-rPPGNet_name = 'rPPGNet_' + Target_name + src_suffix
+rPPGNet_name = config.build_run_name(
+    tgt=Target_name,
+    src=source_domain,
+    spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
+    temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
+    loss_type=getattr(args, 'loss_type', config.LOSS_TYPE),
+)
 
 log = Logger()
 log_path = os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt')
@@ -201,104 +264,102 @@ log.open(log_path, mode='a')
 log.write("\n----------------------------------------------- [START %s] %s\n\n" %
           (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 
-print("Training config:")
-print("  Model name    :", rPPGNet_name)
-print("  epochs        :", args.epochs)
-print("  batch_size    :", batch_size)
-print("  lambda_align  :", lambda_align)
-print("  lambda_sep    :", lambda_sep)
-print("  margin        :", margin)
-print("  log file      :", log_path)
-print("=" * 60)
+# Print a train.py-style training summary for this baseline region run
+Source_domain_Names = [source_domain]
+total_src_samples = len(source_db)
+
+print("TRAINING CONFIG (regions baseline)")
+print("  Target domain:    ", Target_name)
+print("  Target index:     ", target_index_dir)
+print("  Target STMap:     ", args.stmap_name)
+print("  Source domains:   ", Source_domain_Names)
+for i, d in enumerate(Source_domain_Names):
+    print("    [%d] %s -> %s" % (i, d, source_index_dir))
+print("  Batch size:       ", batch_size)
+print("  Max iterations:   ", args.max_iter)
+print("  Frames per clip:  ", frames_num)
+print("  Loss type:        ", getattr(args, 'loss_type', config.LOSS_TYPE))
+print("  Device:           ", device)
+print("  Model:            ", BaseNet.__class__.__name__)
+print("  Source samples:   ", total_src_samples, " (target: %d)" % len(target_db))
+print("  Log file:         ", log_path)
+print("=" * 60 + "\n")
 
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
 BaseNet.train()
 start = timer()
-global_step = 0
 max_iter = args.max_iter
 
-# Initial iterators
-cheek_iter = iter(cheek_loader)
-target_iter = iter(target_loader)
-eye_iter = iter(eye_loader)
+src_iter = iter(src_loader)
+src_iter_per_epoch = len(src_iter)
 
 for iter_num in range(max_iter + 1):
-    # Reset iterators at (approximate) epoch boundaries
-    if iter_num > 0 and (iter_num % steps_per_epoch == 0):
-        cheek_iter = iter(cheek_loader)
-        target_iter = iter(target_loader)
-        eye_iter = iter(eye_loader)
+    # Reset iterator at epoch boundaries (same as train.py)
+    if iter_num > 0 and (iter_num % src_iter_per_epoch == 0):
+        src_iter = src_loader.__iter__()
 
-    try:
-        c_data, c_bvp, c_HR, _, _, _ = next(cheek_iter)
-        t_data, t_bvp, t_HR, _, _, _ = next(target_iter)
-        e_data, e_bvp, e_HR, _, _, _ = next(eye_iter)
-    except StopIteration:
-        break
-
-    # Move to device
-    c_data = Variable(c_data).float().to(device=device)
-    t_data = Variable(t_data).float().to(device=device)
-    e_data = Variable(e_data).float().to(device=device)
-
-    c_bvp = Variable(c_bvp).float().to(device=device).unsqueeze(dim=1)
-    t_bvp = Variable(t_bvp).float().to(device=device).unsqueeze(dim=1)
-    e_bvp = Variable(e_bvp).float().to(device=device).unsqueeze(dim=1)
-
-    c_HR = Variable(torch.Tensor(c_HR)).float().to(device=device)
-    t_HR = Variable(torch.Tensor(t_HR)).float().to(device=device)
-    e_HR = Variable(torch.Tensor(e_HR)).float().to(device=device)
+    # Source batch (includes augmented view)
+    data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug = src_iter.__next__()
+    data = Variable(data).float().to(device=device)
+    bvp = Variable(bvp).float().to(device=device).unsqueeze(dim=1)
+    HR_rel = Variable(torch.Tensor(HR_rel)).float().to(device=device)
+    data_aug = Variable(data_aug).float().to(device=device)
+    bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
+    HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
 
     optimizer.zero_grad()
+    bvp_pre, HR_pr, av = BaseNet(data)
+    bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
 
-    # Forward for each region
-    c_bvp_pre, c_HR_pr, c_av = BaseNet(c_data)
-    t_bvp_pre, t_HR_pr, t_av = BaseNet(t_data)
-    e_bvp_pre, e_HR_pr, e_av = BaseNet(e_data)
+    src_loss = MyLoss.get_loss(
+        bvp_pre, HR_pr, bvp, HR_rel, source_domain,
+        loss_func_NP, loss_func_L1, args, iter_num
+    )
+    src_loss_aug = MyLoss.get_loss(
+        bvp_pre_aug, HR_pr_aug, bvp_aug, HR_rel_aug, source_domain,
+        loss_func_NP, loss_func_L1, args, iter_num
+    )
 
-    # Supervised loss: ONLY target region (PURE_my_in)
-    target_sup_loss = loss_func_NP(t_bvp_pre, t_bvp)
+    loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
+    loss_DM = loss_func_NEST_DM(av, av_aug)
+    loss_TA = loss_func_NEST_TA(
+        torch.cat((av, av_aug), dim=0),
+        torch.cat((HR_rel, HR_rel_aug), dim=0)
+    )
 
-    # Feature-level region losses
-    c_feat = F.normalize(c_av, p=2, dim=1)
-    t_feat = F.normalize(t_av, p=2, dim=1)
-    e_feat = F.normalize(e_av, p=2, dim=1)
+    loss_type = getattr(args, 'loss_type', config.LOSS_TYPE)
+    if loss_type == 'One':
+        loss = src_loss
+    elif loss_type == 'TA':
+        loss = src_loss + loss_TA
+    elif loss_type == 'CM':
+        loss = src_loss + loss_CM
+    elif loss_type == 'DM':
+        loss = src_loss + loss_DM
+    elif loss_type == 'All':
+        loss = src_loss + loss_TA + loss_CM + loss_DM
+    else:
+        loss = src_loss + loss_TA
 
-    # Align target with cheek
-    align_loss = torch.mean(torch.sum((t_feat - c_feat) ** 2, dim=1))
-
-    # Separate target from eye (triplet-style)
-    pos_dist = F.pairwise_distance(t_feat, c_feat)
-    neg_dist = F.pairwise_distance(t_feat, e_feat)
-    sep_loss = torch.mean(torch.relu(margin + pos_dist - neg_dist))
-
-    # total_loss = target_sup_loss + lambda_align * align_loss + lambda_sep * sep_loss
-    total_loss = target_sup_loss
-
-
-    if torch.sum(torch.isnan(total_loss)) > 0:
-        print('NaN loss encountered, stopping.')
+    if torch.sum(torch.isnan(loss)) > 0:
+        print('Nan')
         break
-
-    total_loss.backward()
+    loss.backward()
     optimizer.step()
 
-    if global_step % 50 == 0:
-        elapsed = time_to_str(timer() - start, 'min')
-        epoch = iter_num // max(steps_per_epoch, 1)
+    if iter_num % 100 == 0:
         log_line = (
-            f"Epoch {epoch} Step {global_step} | "
-            f"total: {total_loss.data.cpu().numpy():.4f} | "
-            f"target_sup: {target_sup_loss.data.cpu().numpy():.4f} | "
-            f"align: {align_loss.data.cpu().numpy():.4f} | "
-            f"sep: {sep_loss.data.cpu().numpy():.4f} | "
-            f"{elapsed}"
+            'Train Inter:' + str(iter_num) +
+            ' | loss:  ' + str(loss.data.cpu().numpy()) +
+            ' |' + source_domain + ' : ' + str(src_loss.data.cpu().numpy()) +
+            ' |' + 'CM' + ' : ' + str(loss_CM.data.cpu().numpy()) +
+            ' |' + 'DM' + ' : ' + str(loss_DM.data.cpu().numpy()) +
+            ' |' + 'TA' + ' : ' + str(loss_TA.data.cpu().numpy()) +
+            ' |' + time_to_str(timer() - start, 'min')
         )
-        print(log_line)
-        log.write(log_line + "\n")
-
-    global_step += 1
+        log.write(log_line)
+        log.write('\n')
 
 print("Training finished.")
 
@@ -312,7 +373,7 @@ BVP_ALL = []
 BVP_PR_ALL = []
 
 with torch.no_grad():
-    for step, (data, bvp, HR_rel, _, _, _) in enumerate(ubfc_loader):
+    for step, (data, bvp, HR_rel, _, _, _) in enumerate(tgt_loader):
         data = Variable(data).float().to(device=device)
         bvp = Variable(bvp).float().to(device=device)
         HR_rel = Variable(HR_rel).float().to(device=device)
@@ -342,7 +403,7 @@ print('Saved model:', os.path.abspath(model_path))
 try:
     wave_sort_root = getattr(args, 'wave_sort_root', config.WAVE_SORT_ROOT)
     wave_sort_out = os.path.join(wave_sort_root, args.test_domain, rPPGNet_name)
-    utils.train_utils.wave_sort_from_index(ubfc_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+    utils.train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 except Exception as e:
     print('Warning: Wave_sort failed:', repr(e))
 

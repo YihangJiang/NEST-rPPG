@@ -37,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'UBFC_my_eye'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'PURE_my_eye'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my_in'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
