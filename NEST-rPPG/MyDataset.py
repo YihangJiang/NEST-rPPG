@@ -125,7 +125,7 @@ class Data_DG(Dataset):
             gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
             gt = gt.astype('float32')
 
-        elif self.dataName in ('PURE_my', 'UBFC_my', 'BUAA_my', 'PURE_my_rm', 'PURE_my_in', 'PURE_my_eye', 'UBFC_my_in'):
+        elif (self.dataName.startswith('PURE_my') or self.dataName.startswith('UBFC_my') or self.dataName.startswith('BUAA_my')):
             # STMap_my variants: same label layout as PURE/UBFC (Label/BVP.mat, Label/HR.mat)
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)

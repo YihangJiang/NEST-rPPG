@@ -37,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'UBFC_my'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'PURE_my'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC_my_eye'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my_eye'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
@@ -73,7 +73,9 @@ FILEA_NAME = {
     'PURE_my_rm': ['STMap_my/PURE_my_rm', 'PURE_my_rm', 'STMap_RGB'],
     'PURE_my_in': ['STMap_my/PURE_my_in', 'PURE_my_in', 'STMap_RGB'],
     'PURE_my_eye': ['STMap_my/PURE_my_eye', 'PURE_my_eye', 'STMap_RGB'],
+    'UBFC_my_rm': ['STMap_my/UBFC_my_rm', 'UBFC_my_rm', 'STMap_RGB'],
     'UBFC_my_in': ['STMap_my/UBFC_my_in', 'UBFC_my_in', 'STMap_RGB'],
+    'UBFC_my_eye': ['STMap_my/UBFC_my_eye', 'UBFC_my_eye', 'STMap_RGB'],
     # Row-analysis variant for PURE (still under STMap/ by design)
     'PURE_trans_row0': ['STMap/PURE_trans_row0', 'PURE_trans_row0', 'STMap'],
 }
