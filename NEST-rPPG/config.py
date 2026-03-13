@@ -42,6 +42,7 @@ SRC_DOMAIN = 'PURE_my_in'      # single source; omit/None = use all TARGET_DOMAI
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
+SEED = 42
 
 # Mapping from target domain to list of all possible source domains
 TARGET_DOMAIN = {

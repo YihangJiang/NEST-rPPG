@@ -76,11 +76,32 @@ class BaseNet(nn.Module):
             BasicBlock(32, 1, [1, 1], downsample=1),
         )
 
-    def get_av(self, x):
-        av = torch.mean(torch.mean(x, dim=-1), dim=-1)
-        min, _ = torch.min(av, dim=1, keepdim=True)
-        max, _ = torch.max(av, dim=1, keepdim=True)
-        av = torch.mul((av-min),((max-min).pow(-1)))
+    # def get_av(self, x):
+    #     av = torch.mean(torch.mean(x, dim=-1), dim=-1)
+    #     min, _ = torch.min(av, dim=1, keepdim=True)
+    #     max, _ = torch.max(av, dim=1, keepdim=True)
+    #     print(min, max)
+    #     av = torch.mul((av-min),((max-min).pow(-1)))
+    #     return av
+    def get_av(self, x, eps: float = 1e-6):
+        """
+        Global channel descriptor with stable per-sample min–max normalization.
+
+        Steps per sample:
+        - Global average pool over spatial/temporal dims -> (C,) channel means
+        - Min–max normalize across channels with an epsilon in the denominator
+          to avoid division by zero when max == min.
+        """
+        # x: (B, C, H, T) -> av_raw: (B, C)
+        av = x.mean(dim=(-1, -2))
+        # Per-sample min / max across channels
+        min_val, _ = torch.min(av, dim=1, keepdim=True)
+        max_val, _ = torch.max(av, dim=1, keepdim=True)
+        # Stable denominator
+        denom = (max_val - min_val).clamp_min(eps)
+        av = (av - min_val) / denom
+        # Extra safety: replace any NaN/Inf with zeros
+        av = torch.nan_to_num(av, nan=0.0, posinf=0.0, neginf=0.0)
         return av
     def forward(self, x):
 

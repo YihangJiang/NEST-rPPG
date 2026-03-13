@@ -27,6 +27,9 @@ class Data_DG(Dataset):
         self.num = len(self.datalist)
         self.transform = transform
         self.args = args
+        # Optionally return the subject path (nowPath) along with the tensors.
+        # This is used by train_regions.py to save feature representations per subject.
+        self.return_path = bool(getattr(args, 'return_path', False))
 
 
         self.transform =transforms.Compose([transforms.Resize(size=(64, 256)),
@@ -222,7 +225,10 @@ class Data_DG(Dataset):
         map_aug = self.transform_aug(map_aug)
 
         # 归一化
-        return (map_ori, bvp, gt, map_aug, bvp_aug, gt_aug)
+        sample = (map_ori, bvp, gt, map_aug, bvp_aug, gt_aug)
+        if self.return_path:
+            return sample + (nowPath,)
+        return sample
 
 def CrossValidation(root_dir, fold_num=5,fold_index=0):
     datalist = os.listdir(root_dir)

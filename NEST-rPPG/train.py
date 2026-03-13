@@ -43,7 +43,7 @@ if _USE_JUPYTER_CONFIG:
         reTrain=0,
         reData=1,
         max_iter=3000,
-        seed=0,
+        seed=config.SEED,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
         spatial_aug_rate=config.SPATIAL_AUG_RATE,

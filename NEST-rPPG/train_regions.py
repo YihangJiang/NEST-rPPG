@@ -9,6 +9,7 @@
 %autoreload 2
 
 import os
+import random
 from types import SimpleNamespace
 
 from datetime import datetime
@@ -46,7 +47,7 @@ if _USE_JUPYTER_CONFIG:
         batchsize=100,
         lr=0.001,
         max_iter=3000,          # total training iterations (like train.py)
-        seed=0,
+        seed=config.SEED,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
         spatial_aug_rate=config.SPATIAL_AUG_RATE,
@@ -62,6 +63,12 @@ if _USE_JUPYTER_CONFIG:
         exp_name=config.EXP_NAME,
         # Wave_sort root (for per-subject BVP files)
         wave_sort_root=config.WAVE_SORT_ROOT,
+        # Save per-subject feature representations (av) during training
+        return_path=True,
+        save_features=True,
+        # Weight and temperature for InfoNCE alignment between src and pos/neg domains
+        weight_info=0.01,
+        tau_info=0.07,
     )
 else:
     base_args = utils.get_args()
@@ -84,6 +91,14 @@ else:
         args.wave_sort_root = config.WAVE_SORT_ROOT
     if not hasattr(args, 'loss_type'):
         args.loss_type = config.LOSS_TYPE
+    if not hasattr(args, 'return_path'):
+        args.return_path = False
+    if not hasattr(args, 'save_features'):
+        args.save_features = False
+    if not hasattr(args, 'tau_info'):
+        args.tau_info = 0.07
+    if not hasattr(args, 'seed'):
+        args.seed = 0
 
 # ============ End Cell 1 ============
 
@@ -91,8 +106,24 @@ else:
 # ============ Cell 2: Dataset & index ============
 print("=" * 60)
 
+# Reproducibility: set all RNG seeds before any randomness (datasets, model, dataloader shuffle)
+def _set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+def _worker_init_fn(worker_id):
+    """Deterministic DataLoader worker: seed per worker so augmentation order is reproducible."""
+    base_seed = int(getattr(args, 'seed', 0))
+    random.seed(base_seed + worker_id)
+    np.random.seed(base_seed + worker_id)
+
+_set_seed(args.seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+print("  Random seed:", args.seed, "(deterministic training)")
 
 # Baseline: only `_in` ROI is used for training,
 # but we still keep all three region domains (cheek, target, eye) loaded
@@ -215,12 +246,26 @@ print("  baseline source dataset:", source_domain, "num_samples =", len(source_d
 print("  baseline test dataset  :", args.test_domain, "num_samples =", len(target_db))
 
 print("Creating DataLoaders (baseline like train.py)...")
-src_loader = DataLoader(source_db, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-tgt_loader = DataLoader(target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+# Fixed generator so shuffle order is reproducible across runs
+_generator = torch.Generator().manual_seed(args.seed)
+src_loader = DataLoader(
+    source_db, batch_size=batch_size, shuffle=True, num_workers=num_workers,
+    worker_init_fn=_worker_init_fn, generator=_generator
+)
+tgt_loader = DataLoader(
+    target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+    worker_init_fn=_worker_init_fn
+)
 
-# Dataloaders for pos/neg domains (not used yet in baseline, but available)
-pos_loader = DataLoader(pos_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-neg_loader = DataLoader(neg_db, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+# Dataloaders for pos/neg domains
+pos_loader = DataLoader(
+    pos_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+    worker_init_fn=_worker_init_fn
+)
+neg_loader = DataLoader(
+    neg_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+    worker_init_fn=_worker_init_fn
+)
 
 steps_per_epoch = len(src_loader)
 print(f"steps_per_epoch (source) = {steps_per_epoch}")
@@ -293,24 +338,80 @@ max_iter = args.max_iter
 
 src_iter = iter(src_loader)
 src_iter_per_epoch = len(src_iter)
+pos_iter = iter(pos_loader)
+neg_iter = iter(neg_loader)
+
+_printed_nan_debug = False
 
 for iter_num in range(max_iter + 1):
-    # Reset iterator at epoch boundaries (same as train.py)
+    # Reset iterators at epoch boundaries (same as train.py)
     if iter_num > 0 and (iter_num % src_iter_per_epoch == 0):
         src_iter = src_loader.__iter__()
+        pos_iter = pos_loader.__iter__()
+        neg_iter = neg_loader.__iter__()
 
-    # Source batch (includes augmented view)
-    data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug = src_iter.__next__()
+    # Source batch (includes augmented view) + subject paths (from Data_DG with return_path=True)
+    data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug, subj_paths = src_iter.__next__()
     data = Variable(data).float().to(device=device)
     bvp = Variable(bvp).float().to(device=device).unsqueeze(dim=1)
     HR_rel = Variable(torch.Tensor(HR_rel)).float().to(device=device)
     data_aug = Variable(data_aug).float().to(device=device)
     bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
     HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
+    # Positive-domain batch (pos_loader) and negative-domain batch (neg_loader)
+    try:
+        pos_data, _, _, _, _, _, _ = pos_iter.__next__()
+    except StopIteration:
+        pos_iter = pos_loader.__iter__()
+        pos_data, _, _, _, _, _, _ = pos_iter.__next__()
+    pos_data = Variable(pos_data).float().to(device=device)
+    _, _, av_pos = BaseNet(pos_data)
+
+    try:
+        neg_data, _, _, _, _, _, _ = neg_iter.__next__()
+    except StopIteration:
+        neg_iter = neg_loader.__iter__()
+        neg_data, _, _, _, _, _, _ = neg_iter.__next__()
+    neg_data = Variable(neg_data).float().to(device=device)
+    _, _, av_neg = BaseNet(neg_data)
+
 
     optimizer.zero_grad()
     bvp_pre, HR_pr, av = BaseNet(data)
     bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
+
+    # One-time NaN diagnostics (helps locate first NaN source)
+    if not _printed_nan_debug:
+        any_nan = (
+            torch.isnan(data).any() or torch.isnan(bvp_pre).any() or torch.isnan(av).any() or
+            torch.isnan(data_aug).any() or torch.isnan(bvp_pre_aug).any() or torch.isnan(av_aug).any()
+        )
+        if any_nan:
+            print("\n[NaN DEBUG] First NaN detected at iter_num =", iter_num)
+            print("  data nan:", bool(torch.isnan(data).any()))
+            print("  bvp_pre nan:", bool(torch.isnan(bvp_pre).any()))
+            print("  av nan:", bool(torch.isnan(av).any()))
+            print("  data_aug nan:", bool(torch.isnan(data_aug).any()))
+            print("  bvp_pre_aug nan:", bool(torch.isnan(bvp_pre_aug).any()))
+            print("  av_aug nan:", bool(torch.isnan(av_aug).any()))
+            _printed_nan_debug = True
+
+
+
+    # Optionally save per-subject feature representations (av) for this batch
+    if getattr(args, 'save_features', False):
+        av_cpu = av.detach().cpu().numpy()
+        for path_str, feat in zip(subj_paths, av_cpu):
+            # subj_paths elements are subject root paths like STMap_my/PURE_my_rm/01-01
+            if not isinstance(path_str, str):
+                path_str = str(path_str)
+            feat_name = f"feat_iter_{iter_num:06d}.npy"
+            feat_path = os.path.join(path_str, feat_name)
+            try:
+                os.makedirs(path_str, exist_ok=True)
+                np.save(feat_path, feat)
+            except Exception as e:
+                print(f"Warning: failed to save feature to {feat_path}: {repr(e)}")
 
     src_loss = MyLoss.get_loss(
         bvp_pre, HR_pr, bvp, HR_rel, source_domain,
@@ -328,6 +429,21 @@ for iter_num in range(max_iter + 1):
         torch.cat((HR_rel, HR_rel_aug), dim=0)
     )
 
+    # InfoNCE-style alignment: pull src av toward pos_domain av and push away from neg_domain av
+    with torch.no_grad():
+        m = min(av.shape[0], av_pos.shape[0], av_neg.shape[0])
+    if m > 0:
+        tau = float(getattr(args, 'tau_info', 0.07))
+        q = F.normalize(av[:m], dim=1)
+        k_pos = F.normalize(av_pos[:m], dim=1)
+        k_neg = F.normalize(av_neg[:m], dim=1)
+        keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
+        logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
+        labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
+        align_pos_loss = F.cross_entropy(logits, labels)
+    else:
+        align_pos_loss = torch.tensor(0.0, device=av.device, dtype=av.dtype)
+
     loss_type = getattr(args, 'loss_type', config.LOSS_TYPE)
     if loss_type == 'One':
         loss = src_loss
@@ -341,6 +457,9 @@ for iter_num in range(max_iter + 1):
         loss = src_loss + loss_TA + loss_CM + loss_DM
     else:
         loss = src_loss + loss_TA
+
+    # Add alignment regularizer between src av and pos_domain av
+    loss = loss + args.weight_info * align_pos_loss
 
     if torch.sum(torch.isnan(loss)) > 0:
         print('Nan')
@@ -356,6 +475,7 @@ for iter_num in range(max_iter + 1):
             ' |' + 'CM' + ' : ' + str(loss_CM.data.cpu().numpy()) +
             ' |' + 'DM' + ' : ' + str(loss_DM.data.cpu().numpy()) +
             ' |' + 'TA' + ' : ' + str(loss_TA.data.cpu().numpy()) +
+            ' |' + 'AlignPos' + ' : ' + str(align_pos_loss.data.cpu().numpy()) +
             ' |' + time_to_str(timer() - start, 'min')
         )
         log.write(log_line)
@@ -373,7 +493,7 @@ BVP_ALL = []
 BVP_PR_ALL = []
 
 with torch.no_grad():
-    for step, (data, bvp, HR_rel, _, _, _) in enumerate(tgt_loader):
+    for step, (data, bvp, HR_rel, _, _, _, paths) in enumerate(tgt_loader):
         data = Variable(data).float().to(device=device)
         bvp = Variable(bvp).float().to(device=device)
         HR_rel = Variable(HR_rel).float().to(device=device)

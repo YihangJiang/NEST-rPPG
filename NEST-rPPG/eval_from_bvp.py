@@ -18,6 +18,7 @@ import config
 FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
 save_path = config.EVAL_SAVE_PATH
+print(f"Evaluating Wave_sort path: {save_path}")
 
 
 # %%

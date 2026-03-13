@@ -136,27 +136,8 @@ class NEST_CM(nn.Module):
 
         cov_losses = []
         for name, block, dim in blocks:
-            try:
-                s = torch.linalg.svdvals(block)
-            except Exception as e:
-                # Print diagnostics if SVD fails on this block
-                with torch.no_grad():
-                    block_cpu = block.detach().float().cpu()
-                    max_abs = float(block_cpu.abs().max())
-                    nan_count = int(torch.isnan(block_cpu).sum())
-                    # print(f"[NEST_CM] SVD failure on {name} shape={tuple(block.shape)} "
-                    #       f"max|x|={max_abs:.4e} nan_count={nan_count} error={repr(e)}")
-                raise
-
-            # Condition estimate (before normalization)
-            with torch.no_grad():
-                s_cpu = s.detach().float().cpu()
-                s_min = float(s_cpu.min())
-                s_max = float(s_cpu.max())
-                s_sum = float(s_cpu.sum())
-                cond = s_max / (s_min + 1e-12) if s_min > 0 else float("inf")
-                # print(f"[NEST_CM] {name} svdvals: shape={tuple(block.shape)} "
-                #       f"sum={s_sum:.4e} min={s_min:.4e} max={s_max:.4e} cond~={cond:.4e}")
+            # Compute singular values; if this ever fails it will raise without extra logging.
+            s = torch.linalg.svdvals(block)
 
             s = torch.div(s, torch.sum(s))
             thr = ratio / float(dim)
@@ -164,8 +145,7 @@ class NEST_CM(nn.Module):
             cov_losses.append(cov_loss)
 
         cov_loss0, cov_loss1, cov_loss2, cov_loss3 = cov_losses
-
-        return (cov_loss0 + cov_loss1 + cov_loss2 + cov_loss3)/4
+        return (cov_loss0 + cov_loss1 + cov_loss2 + cov_loss3) / 4
     
 class NEST_DM(nn.Module):
     def __init__(self):
@@ -259,5 +239,5 @@ def get_loss(bvp_pre, hr_pre, bvp_gt, hr_gt, dataName, \
         raise ValueError(f"get_loss: unknown dataName '{dataName}'")
 
     if torch.sum(torch.isnan(loss)) > 0:
-        print('Tere in nan loss found in' + dataName)
+        print('There in nan loss found in' + dataName)
     return loss
