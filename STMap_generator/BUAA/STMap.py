@@ -18,10 +18,10 @@ from scipy import signal
 
 # %%
 # Config: set paths for your environment (edit and run this cell first)
-fileRoot = '/mnt/nvme2/rppg_data/BUAA'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_EYE'
 STMap_name = 'STMap_RGB.png'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my'))
+BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_eye'))
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):

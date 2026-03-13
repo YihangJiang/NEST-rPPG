@@ -46,7 +46,7 @@ if _USE_JUPYTER_CONFIG:
         epochs=50,
         batchsize=100,
         lr=0.001,
-        max_iter=3000,          # total training iterations (like train.py)
+        max_iter=1000,          # total training iterations (like train.py)
         seed=config.SEED,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
@@ -54,7 +54,7 @@ if _USE_JUPYTER_CONFIG:
         loss_type=config.LOSS_TYPE,  # One / TA / CM / DM / All
         frames_num=256,
         # Domains (paths resolved via config.FILEA_NAME)
-        test_domain='UBFC_my_in',
+        test_domain='PURE_my_in',
         # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[test_domain][1], i.e., *_in)
         source_domain=None,
         stmap_name=config.STMAP_NAME,
@@ -69,6 +69,7 @@ if _USE_JUPYTER_CONFIG:
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
         weight_info=0.01,
         tau_info=0.07,
+        grad_clip=5.0,
     )
 else:
     base_args = utils.get_args()
@@ -99,6 +100,8 @@ else:
         args.tau_info = 0.07
     if not hasattr(args, 'seed'):
         args.seed = 0
+    if not hasattr(args, 'grad_clip'):
+        args.grad_clip = 5.0
 
 # ============ End Cell 1 ============
 
@@ -358,22 +361,28 @@ for iter_num in range(max_iter + 1):
     data_aug = Variable(data_aug).float().to(device=device)
     bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
     HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
-    # Positive-domain batch (pos_loader) and negative-domain batch (neg_loader)
+    # Positive/negative-domain batches for InfoNCE.
+    # Important: run these auxiliary forwards WITHOUT updating BN stats and WITHOUT gradients,
+    # otherwise train_regions is much more unstable than train.py (extra train-mode forwards).
     try:
         pos_data, _, _, _, _, _, _ = pos_iter.__next__()
     except StopIteration:
         pos_iter = pos_loader.__iter__()
         pos_data, _, _, _, _, _, _ = pos_iter.__next__()
-    pos_data = Variable(pos_data).float().to(device=device)
-    _, _, av_pos = BaseNet(pos_data)
-
     try:
         neg_data, _, _, _, _, _, _ = neg_iter.__next__()
     except StopIteration:
         neg_iter = neg_loader.__iter__()
         neg_data, _, _, _, _, _, _ = neg_iter.__next__()
+
+    pos_data = Variable(pos_data).float().to(device=device)
     neg_data = Variable(neg_data).float().to(device=device)
-    _, _, av_neg = BaseNet(neg_data)
+
+    BaseNet.eval()
+    with torch.no_grad():
+        _, _, av_pos = BaseNet(pos_data)
+        _, _, av_neg = BaseNet(neg_data)
+    BaseNet.train()
 
 
     optimizer.zero_grad()
@@ -465,6 +474,8 @@ for iter_num in range(max_iter + 1):
         print('Nan')
         break
     loss.backward()
+    # Prevent exploding gradients -> NaNs in decoder output (bvp_pre)
+    torch.nn.utils.clip_grad_norm_(BaseNet.parameters(), max_norm=float(args.grad_clip))
     optimizer.step()
 
     if iter_num % 100 == 0:
