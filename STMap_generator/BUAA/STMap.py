@@ -18,10 +18,10 @@ from scipy import signal
 
 # %%
 # Config: set paths for your environment (edit and run this cell first)
-fileRoot = '/mnt/nvme2/rppg_data/BUAA_EYE'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_RM'
 STMap_name = 'STMap_RGB.png'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_eye'))
+BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_rm'))
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):
@@ -135,12 +135,12 @@ for subfile_p in sorted(os.listdir(fileRoot)):
         lmk_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Label', 'RGB_lmk.csv')
         RGB_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Align')
         STMap_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'STMap')
-        if not os.path.exists(lmk_path):
-            print('  Skip (no landmarks):', lmk_path)
-            continue
-        if not os.path.exists(RGB_path):
-            print('  Skip (no Align folder):', RGB_path)
-            continue
+        # if not os.path.exists(lmk_path):
+        #     print('  Skip (no landmarks):', lmk_path)
+        #     continue
+        # if not os.path.exists(RGB_path):
+        #     print('  Skip (no Align folder):', RGB_path)
+        #     continue
         os.makedirs(STMap_path, exist_ok=True)
         print(z, buaa_my_folder)
         lmk_all = []

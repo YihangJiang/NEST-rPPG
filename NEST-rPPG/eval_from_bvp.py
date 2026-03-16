@@ -5,6 +5,8 @@ When run this script, use interpreter: mprppg
 """
 
 # %%
+%reload_ext autoreload
+%autoreload 2
 import os
 import numpy as np
 import scipy.io as scio

@@ -7,13 +7,13 @@ import numpy as np
 
 # %%
 # Config
-fileRoot = '/mnt/nvme2/rppg_data/BUAA'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_EYE'
 
 # Base folder in this repo where aligned PNGs will be mirrored,
 # e.g. BUAA_my/Sub_01lux10.0/Align/xxxxx.png
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, '..', '..'))
-BUAA_MY_ROOT = os.path.join(_REPO_ROOT, 'STMap_my', 'BUAA_my')
+BUAA_MY_ROOT = os.path.join(_REPO_ROOT, 'STMap_my', 'BUAA_my_eye')
 OUTPUT_SIZE = 128
 FRAME_NAME_START = 10000  # first frame saved as 10000.png, 10001.png, ...
 

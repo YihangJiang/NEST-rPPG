@@ -18,14 +18,14 @@ def get_file(dir_path, suffix):
 
 
 # Raw dataset root: fileRoot/Subject/lux_xx.xx/*.avi
-fileRoot = '/mnt/nvme2/rppg_data/BUAA_EYE'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_RM'
 
 # Preprocessing output root: BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
 if '__file__' in dir():
     _script_dir = os.path.dirname(os.path.abspath(__file__))
-    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_eye'))
+    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_rm'))
 else:
-    saveRoot = os.path.join(os.getcwd(), 'STMap_my', 'BUAA_my_eye')
+    saveRoot = os.path.join(os.getcwd(), 'STMap_my', 'BUAA_my_rm')
 
 fa = face_alignment.FaceAlignment(
     face_alignment.LandmarksType.TWO_D,

@@ -16,8 +16,8 @@ savePath = os.path.join(BASE_DIR, 'Wave_sort', 'UBFC')
 if not os.path.exists(savePath):
     os.makedirs(savePath)
 Idex_files = os.path.join(BASE_DIR, 'STMap', 'STMap_Index', 'UBFC')
-gt_path = os.path.join(BASE_DIR, 'Result', 'rPPGNet_UBFC_srcPURESpatial0.5Temporal0.1WAVE_ALL.mat')
-pr_path = os.path.join(BASE_DIR, 'Result', 'rPPGNet_UBFC_srcPURESpatial0.5Temporal0.1WAVE_PR_ALL.mat')
+gt_path = os.path.join(BASE_DIR, 'Output', 'rPPGNet_UBFC_srcPURESpatial0.5Temporal0.1WAVE_ALL.mat')
+pr_path = os.path.join(BASE_DIR, 'Output', 'rPPGNet_UBFC_srcPURESpatial0.5Temporal0.1WAVE_PR_ALL.mat')
 pr = scio.loadmat(pr_path)['Wave']
 pr = np.squeeze(np.array(pr.astype('float32')))
 gt = scio.loadmat(gt_path)['Wave']

@@ -54,20 +54,15 @@ if _USE_JUPYTER_CONFIG:
         loss_type=config.LOSS_TYPE,  # One / TA / CM / DM / All
         frames_num=256,
         # Domains (paths resolved via config.FILEA_NAME)
-        test_domain='PURE_my_in',
+        test_domain='BUAA_my_in',
         # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[test_domain][1], i.e., *_in)
         source_domain=None,
         stmap_name=config.STMAP_NAME,
         index_root=config.STMAP_INDEX_BASE,  # index root (subfolders are domain names)
-        # Logging / model name suffix
-        exp_name=config.EXP_NAME,
-        # Wave_sort root (for per-subject BVP files)
-        wave_sort_root=config.WAVE_SORT_ROOT,
         # Save per-subject feature representations (av) during training
-        return_path=True,
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0.01,
+        weight_info=0,
         tau_info=0.07,
         grad_clip=5.0,
     )
@@ -77,7 +72,7 @@ else:
     if not hasattr(args, 'frames_num'):
         args.frames_num = 256
     if not hasattr(args, 'test_domain'):
-        args.test_domain = 'UBFC_my_in'
+        args.test_domain = 'PURE_my_in'
     if not hasattr(args, 'source_domain'):
         args.source_domain = None
     if not hasattr(args, 'stmap_name'):
@@ -86,14 +81,8 @@ else:
         args.index_root = config.STMAP_INDEX_BASE
     if not hasattr(args, 'max_iter'):
         args.max_iter = 3000
-    if not hasattr(args, 'exp_name'):
-        args.exp_name = config.EXP_NAME
-    if not hasattr(args, 'wave_sort_root'):
-        args.wave_sort_root = config.WAVE_SORT_ROOT
     if not hasattr(args, 'loss_type'):
         args.loss_type = config.LOSS_TYPE
-    if not hasattr(args, 'return_path'):
-        args.return_path = False
     if not hasattr(args, 'save_features'):
         args.save_features = False
     if not hasattr(args, 'tau_info'):
@@ -532,8 +521,7 @@ print('Saved model:', os.path.abspath(model_path))
 # %%
 # Wave_sort: regroup per-window BVP into per-subject files (use config path)
 try:
-    wave_sort_root = getattr(args, 'wave_sort_root', config.WAVE_SORT_ROOT)
-    wave_sort_out = os.path.join(wave_sort_root, args.test_domain, rPPGNet_name)
+    wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, args.test_domain, rPPGNet_name)
     utils.train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 except Exception as e:
     print('Warning: Wave_sort failed:', repr(e))

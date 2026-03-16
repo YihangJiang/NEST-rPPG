@@ -41,9 +41,8 @@ if _USE_JUPYTER_CONFIG:
         fold_num=5,
         fold_index=0,
         reTrain=0,
-        reData=1,
         max_iter=1000,
-        seed=0,
+        seed=config.SEED,
         k1=1.0, k2=0.1, k3=1.0, k4=0.1, k5=1.0, k6=0.1, k7=0.1, k8=0.1,
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
         spatial_aug_rate=config.SPATIAL_AUG_RATE,
@@ -144,34 +143,31 @@ else:
     device = torch.device('cpu')
     print('on CPU')
 # %%
-# 数据集 — index regeneration (reData=1) and dataset / DataLoader setup
+# 数据集 — always regenerate index from STMap folders
 print("\n--- Dataset & index setup ---")
-if args.reData == 1:
-    print("reData=1: regenerating indexes (clearing old index files, then building from STMap folders).")
-    # Clear old index files so we don't use stale paths after renaming folders
-    # (especially important when you changed subject IDs like PURE 10010 → new name)
-    for cfg in source_configs + [{'name': Target_name, 'saveRoot': Target_saveRoot}]:
-        save_root = cfg['saveRoot']
-        if os.path.exists(save_root):
-            removed = 0
-            for fname in os.listdir(save_root):
-                fpath = os.path.join(save_root, fname)
-                if os.path.isfile(fpath):
-                    os.remove(fpath)
-                    removed += 1
-            if removed:
-                print("  Cleared %d index files in %s" % (removed, save_root))
+print("Regenerating indexes (clearing old index files, then building from STMap folders).")
+for cfg in source_configs + [{'name': Target_name, 'saveRoot': Target_saveRoot}]:
+    save_root = cfg['saveRoot']
+    if os.path.exists(save_root):
+        removed = 0
+        for fname in os.listdir(save_root):
+            fpath = os.path.join(save_root, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+                removed += 1
+        if removed:
+            print("  Cleared %d index files in %s" % (removed, save_root))
 
-    print("  Building target index: %s from %s" % (Target_name, Target_fileRoot))
-    Target_index = os.listdir(Target_fileRoot)
-    Target_Indexa = MyDataset.getIndex(Target_fileRoot, Target_index,
-                                       Target_saveRoot, Target_map, 10, frames_num)
-    for cfg in source_configs:
-        print("  Building source index: %s from %s" % (cfg['name'], cfg['fileRoot']))
-        idx_list = os.listdir(cfg['fileRoot'])
-        MyDataset.getIndex(cfg['fileRoot'], idx_list, cfg['saveRoot'], cfg['map'], 10, frames_num)
-else:
-    print("reData=0: using existing index files (no regeneration).")
+def _subject_list(root):
+    return sorted([f for f in os.listdir(root) if not f.startswith('.') and os.path.isdir(os.path.join(root, f))])
+print("  Building target index: %s from %s" % (Target_name, Target_fileRoot))
+Target_index = _subject_list(Target_fileRoot)
+Target_Indexa = MyDataset.getIndex(Target_fileRoot, Target_index,
+                                   Target_saveRoot, Target_map, 10, frames_num)
+for cfg in source_configs:
+    print("  Building source index: %s from %s" % (cfg['name'], cfg['fileRoot']))
+    idx_list = _subject_list(cfg['fileRoot'])
+    MyDataset.getIndex(cfg['fileRoot'], idx_list, cfg['saveRoot'], cfg['map'], 10, frames_num)
 
 print("Loading datasets (Data_DG) from index dirs...")
 source_dbs = []
@@ -252,7 +248,7 @@ for iter_num in range(max_iter + 1):
     src_batch_sizes = []
 
     for i in range(num_sources):
-        data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug = src_iters[i].__next__()
+        data, bvp, HR_rel, data_aug, bvp_aug, HR_rel_aug, _ = src_iters[i].__next__()
         src_batch_sizes.append(data.shape[0])
         src_data_list.append(Variable(data).float().to(device=device))
         src_bvp_list.append(Variable(bvp).float().to(device=device).unsqueeze(dim=1))
@@ -336,7 +332,7 @@ HR_pr_temp = []
 HR_rel_temp = []
 BVP_ALL = []
 BVP_PR_ALL = []
-for step, (data, bvp, HR_rel, _, _, _) in enumerate(tgt_loader):
+for step, (data, bvp, HR_rel, _, _, _, _) in enumerate(tgt_loader):
     data = Variable(data).float().to(device=device)
     bvp = Variable(bvp).float().to(device=device)
     HR_rel = Variable(HR_rel).float().to(device=device)

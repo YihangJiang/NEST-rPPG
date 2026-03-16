@@ -30,14 +30,14 @@ STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
 # ===== END SWITCH BLOCK =====
 
 # Output dirs (under NEST-rPPG)
-RESULT_DIR = os.path.join(BASE_DIR, 'Result')
-RESULT_LOG_DIR = os.path.join(BASE_DIR, 'Result_log')
+RESULT_DIR = os.path.join(BASE_DIR, 'Output')
+RESULT_LOG_DIR = os.path.join(BASE_DIR, 'Training_Log')
 WAVE_SORT_ROOT = os.path.join(BASE_DIR, 'Wave_sort')
 MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'PURE_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+TGT_DOMAIN = 'BUAA_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
 SRC_DOMAIN = 'UBFC_my_in'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
@@ -56,7 +56,8 @@ TARGET_DOMAIN = {
     'UBFC_my': ['PURE_my', 'BUAA_my'],
     # train_my: test domain -> 3 source-region domains (order matters: cheek, target, eye)
     'UBFC_my_in': ['PURE_my_rm', 'PURE_my_in', 'PURE_my_eye'],
-    'PURE_my_in': ['UBFC_my_rm', 'UBFC_my_in', 'UBFC_my_eye'],
+    'PURE_my_in': ['BUAA_my_rm', 'BUAA_my_in', 'BUAA_my_eye'],
+    'BUAA_my_in': ['UBFC_my_rm', 'UBFC_my_in', 'UBFC_my_eye'],
 }
 
 # Data paths: PURE and UBFC use STMap_my (PURE_my, UBFC_my); others use STMap/
@@ -78,6 +79,9 @@ FILEA_NAME = {
     'UBFC_my_rm': ['STMap_my/UBFC_my_rm', 'UBFC_my_rm', 'STMap_RGB'],
     'UBFC_my_in': ['STMap_my/UBFC_my_in', 'UBFC_my_in', 'STMap_RGB'],
     'UBFC_my_eye': ['STMap_my/UBFC_my_eye', 'UBFC_my_eye', 'STMap_RGB'],
+    'BUAA_my_rm': ['STMap_my/BUAA_my_rm', 'BUAA_my_rm', 'STMap_RGB'],
+    'BUAA_my_in': ['STMap_my/BUAA_my_in', 'BUAA_my_in', 'STMap_RGB'],
+    'BUAA_my_eye': ['STMap_my/BUAA_my_eye', 'BUAA_my_eye', 'STMap_RGB'],
     # Row-analysis variant for PURE (still under STMap/ by design)
     'PURE_trans_row0': ['STMap/PURE_trans_row0', 'PURE_trans_row0', 'STMap'],
 }
@@ -93,19 +97,13 @@ def get_index_dir(domain: str) -> str:
 
 
 def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=None, override=None):
-    """Build rPPGNet run name. Uses config defaults for None args."""
+    """Build rPPGNet run name. Uses config defaults for None args. spatial/temporal are ignored (no longer in name)."""
     if override:
         return override
     tgt = tgt or TGT_DOMAIN
     src = src or SRC_DOMAIN
-    spatial = spatial if spatial is not None else SPATIAL_AUG_RATE
-    temporal = temporal if temporal is not None else TEMPORAL_AUG_RATE
     loss_type = loss_type or LOSS_TYPE
-    return (
-        f"rPPGNet_{tgt}_src{src}"
-        f"Spatial{spatial}Temporal{temporal}"
-        f"_loss{loss_type}"
-    )
+    return f"rPPGNet_{tgt}_src{src}_loss{loss_type}"
 
 
 def canonical_data_name(domain: str) -> str:

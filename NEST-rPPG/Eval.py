@@ -33,8 +33,8 @@ if __name__ == '__main__':
 
     gt_name = 'Label/HR.mat'
     frames_num = 256
-    pr_path = r'./Result/rPPGNet_V4VSpatial0.5Temporal0.1HR_pr.mat'
-    gt_path = r'./Result/rPPGNet_V4VSpatial0.5Temporal0.1HR_rel.mat'
+    pr_path = r'./Output/rPPGNet_V4VSpatial0.5Temporal0.1HR_pr.mat'
+    gt_path = r'./Output/rPPGNet_V4VSpatial0.5Temporal0.1HR_rel.mat'
     Idex_files = r'./STMap/STMap_Index/V4V'
 
     gt_av = []

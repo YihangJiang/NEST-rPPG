@@ -17,7 +17,7 @@ import math
 
 
 class Data_DG(Dataset):
-    def __init__(self, root_dir, dataName, STMap, frames_num, args, transform = None):
+    def __init__(self, root_dir, dataName, STMap, frames_num, args, transform=None):
         self.root_dir = root_dir
         self.dataName = dataName
         self.STMap_Name = STMap
@@ -27,9 +27,6 @@ class Data_DG(Dataset):
         self.num = len(self.datalist)
         self.transform = transform
         self.args = args
-        # Optionally return the subject path (nowPath) along with the tensors.
-        # This is used by train_regions.py to save feature representations per subject.
-        self.return_path = bool(getattr(args, 'return_path', False))
 
 
         self.transform =transforms.Compose([transforms.Resize(size=(64, 256)),
@@ -226,9 +223,7 @@ class Data_DG(Dataset):
 
         # 归一化
         sample = (map_ori, bvp, gt, map_aug, bvp_aug, gt_aug)
-        if self.return_path:
-            return sample + (nowPath,)
-        return sample
+        return sample + (nowPath,)
 
 def CrossValidation(root_dir, fold_num=5,fold_index=0):
     datalist = os.listdir(root_dir)
@@ -246,9 +241,14 @@ def getIndex(root_path, filesList, save_path, Pic_path, Step, frames_num):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     for sub_file in filesList:
+        if sub_file.startswith('.'):
+            continue
         now = os.path.join(root_path, sub_file)
         img_path = os.path.join(now, os.path.join('STMap', Pic_path))
         temp = cv2.imread(img_path)
+        if temp is None:
+            print('  Skip (no STMap or invalid path): %s' % img_path)
+            continue
         Num = temp.shape[1]
         Res = Num - frames_num - 1  # 可能是Diff数据
         Step_num = int(Res/Step)
