@@ -14,11 +14,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torchvision import transforms
-import utils
 from datetime import datetime
 import os
 import time
-from utils import Logger, time_to_str
+from utils.core import Logger, time_to_str, get_args
+from utils import train_utils
 from timeit import default_timer as timer
 import time
 import random
@@ -56,7 +56,7 @@ if _USE_JUPYTER_CONFIG:
         wave_sort_root=config.WAVE_SORT_ROOT,
     )
 else:
-    args = utils.get_args()
+    args = get_args()
     for attr, default in [
         ('loss_type', config.LOSS_TYPE),
         ('tgt', config.TGT_DOMAIN),
@@ -186,9 +186,17 @@ tgt_loader = DataLoader(Target_db, batch_size=batch_size_num, shuffle=False, num
 print("--- Done.\n")
 
 # Save example figures: one sample per domain (STMap + BVP)
-utils.train_utils.save_example_figures(root_file, tgt_loader, src_loaders, source_configs, Target_name,
-                                       tgt_db=Target_db, source_dbs=source_dbs, target_map=Target_map,
-                                       example_fig_dir=os.path.join(config.RESULT_LOG_DIR, 'example_fig'))
+train_utils.save_example_figures(
+    root_file,
+    tgt_loader,
+    src_loaders,
+    source_configs,
+    Target_name,
+    tgt_db=Target_db,
+    source_dbs=source_dbs,
+    target_map=Target_map,
+    example_fig_dir=os.path.join(config.RESULT_LOG_DIR, 'example_fig'),
+)
 
 # %%
 BaseNet = model.BaseNet()
@@ -357,7 +365,12 @@ print('Saved model:', os.path.abspath(model_path))
 
 try:
     wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, Target_name, rPPGNet_name)
-    utils.train_utils.wave_sort_from_index(Target_saveRoot, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+    train_utils.wave_sort_from_index(
+        Target_saveRoot,
+        np.array(BVP_ALL),
+        np.array(BVP_PR_ALL),
+        wave_sort_out,
+    )
 except Exception as e:
     print('Warning: Wave_sort failed:', repr(e))
 

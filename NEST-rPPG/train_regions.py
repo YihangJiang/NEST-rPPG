@@ -19,8 +19,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-# %%
-
 import scipy.io as io
 
 from torch.utils.data import DataLoader
@@ -53,9 +51,7 @@ if _USE_JUPYTER_CONFIG:
         spatial_aug_rate=config.SPATIAL_AUG_RATE,
         loss_type=config.LOSS_TYPE,  # One / TA / CM / DM / All
         frames_num=256,
-        # Domains (paths resolved via config.FILEA_NAME)
-        test_domain='BUAA_my_in',
-        # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[test_domain][1], i.e., *_in)
+        # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[config.TGT_DOMAIN][1], i.e., *_in)
         source_domain=None,
         stmap_name=config.STMAP_NAME,
         index_root=config.STMAP_INDEX_BASE,  # index root (subfolders are domain names)
@@ -71,8 +67,6 @@ else:
     args = base_args
     if not hasattr(args, 'frames_num'):
         args.frames_num = 256
-    if not hasattr(args, 'test_domain'):
-        args.test_domain = 'PURE_my_in'
     if not hasattr(args, 'source_domain'):
         args.source_domain = None
     if not hasattr(args, 'stmap_name'):
@@ -120,9 +114,9 @@ print("  Random seed:", args.seed, "(deterministic training)")
 # Baseline: only `_in` ROI is used for training,
 # but we still keep all three region domains (cheek, target, eye) loaded
 # so it is easy to plug in region-specific logic later.
-# - test domain: args.test_domain (e.g. UBFC_my_in)
+# - test domain: config.TGT_DOMAIN (e.g. UBFC_my_in)
 # - 3 region domains for this test domain: cheek, target, eye
-src_domains = config.TARGET_DOMAIN[args.test_domain]
+src_domains = config.TARGET_DOMAIN[config.TGT_DOMAIN]
 cheek_domain, target_region_domain, eye_domain = src_domains[0], src_domains[1], src_domains[2]
 
 # For later region-aware methods, treat:
@@ -141,13 +135,13 @@ region_roots = {
     d: os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[d][0])
     for d in region_domains
 }
-target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[args.test_domain][0])
+target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[config.TGT_DOMAIN][0])
 index_root = args.index_root
 
 # Index dirs for each region and for the test domain
 region_index_dirs = {d: os.path.join(index_root, d) for d in region_domains}
 source_index_dir = region_index_dirs[source_domain]
-target_index_dir = os.path.join(index_root, args.test_domain)
+target_index_dir = os.path.join(index_root, config.TGT_DOMAIN)
 
 frames_num = args.frames_num
 batch_size = args.batchsize
@@ -155,10 +149,8 @@ num_workers = args.num_workers
 GPU = args.GPU
 
 print("Source region domains (config.TARGET_DOMAIN[test]):", src_domains)
-print("Test domain:", args.test_domain)
-print("Baseline training domains (train.py-style):")
-print("  source_domain:", source_domain)
-print("  test_domain  :", args.test_domain)
+print("Test domain:", config.TGT_DOMAIN)
+print("  test_domain  :", config.TGT_DOMAIN)
 print("Region STMap roots:")
 print("  cheek (pos_domain):", region_roots[cheek_domain])
 print("  target          :", region_roots[target_region_domain])
@@ -183,7 +175,7 @@ for d in region_domains:
     _build_index_if_needed(region_roots[d], region_index_dirs[d], args.stmap_name, d)
 
 # And for the test domain (target of evaluation)
-_build_index_if_needed(target_root, target_index_dir, args.stmap_name, args.test_domain)
+_build_index_if_needed(target_root, target_index_dir, args.stmap_name, config.TGT_DOMAIN)
 
 print("Loading datasets...")
 
@@ -228,14 +220,14 @@ source_db = MyDataset.Data_DG(
 )
 target_db = MyDataset.Data_DG(
     root_dir=target_index_dir,
-    dataName=config.canonical_data_name(args.test_domain),
+    dataName=config.canonical_data_name(config.TGT_DOMAIN),
     STMap=args.stmap_name,
     frames_num=frames_num,
     args=args
 )
 
 print("  baseline source dataset:", source_domain, "num_samples =", len(source_db))
-print("  baseline test dataset  :", args.test_domain, "num_samples =", len(target_db))
+print("  baseline test dataset  :", config.TGT_DOMAIN, "num_samples =", len(target_db))
 
 print("Creating DataLoaders (baseline like train.py)...")
 # Fixed generator so shuffle order is reproducible across runs
@@ -286,7 +278,7 @@ loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8).to(device)
 os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
 
 # Naming: rPPGNet_<test_domain>_src<target_region> (e.g. rPPGNet_UBFC_my_in_srcPURE_my_in)
-Target_name = args.test_domain
+Target_name = config.TGT_DOMAIN
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=source_domain,
@@ -428,19 +420,15 @@ for iter_num in range(max_iter + 1):
     )
 
     # InfoNCE-style alignment: pull src av toward pos_domain av and push away from neg_domain av
-    with torch.no_grad():
-        m = min(av.shape[0], av_pos.shape[0], av_neg.shape[0])
-    if m > 0:
-        tau = float(getattr(args, 'tau_info', 0.07))
-        q = F.normalize(av[:m], dim=1)
-        k_pos = F.normalize(av_pos[:m], dim=1)
-        k_neg = F.normalize(av_neg[:m], dim=1)
-        keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
-        logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
-        labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
-        align_pos_loss = F.cross_entropy(logits, labels)
-    else:
-        align_pos_loss = torch.tensor(0.0, device=av.device, dtype=av.dtype)
+    m = av.shape[0]
+    tau = float(getattr(args, 'tau_info', 0.07))
+    q = F.normalize(av, dim=1)
+    k_pos = F.normalize(av_pos[:m], dim=1)
+    k_neg = F.normalize(av_neg[:m], dim=1)
+    keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
+    logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
+    labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
+    align_pos_loss = F.cross_entropy(logits, labels)
 
     loss_type = getattr(args, 'loss_type', config.LOSS_TYPE)
     if loss_type == 'One':
@@ -521,7 +509,7 @@ print('Saved model:', os.path.abspath(model_path))
 # %%
 # Wave_sort: regroup per-window BVP into per-subject files (use config path)
 try:
-    wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, args.test_domain, rPPGNet_name)
+    wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, rPPGNet_name)
     utils.train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 except Exception as e:
     print('Warning: Wave_sort failed:', repr(e))

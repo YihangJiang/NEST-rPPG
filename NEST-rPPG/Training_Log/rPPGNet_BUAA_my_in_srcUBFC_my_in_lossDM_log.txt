@@ -1,0 +1,42 @@
+
+----------------------------------------------- [START 2026-03-15 22:18:49] ---------------------------------------------------
+
+Train Inter:0 | loss:  1.3359184 |UBFC_my_in : 0.98983395 |CM : -0.010440728 |DM : 0.3460845 |TA : 0.07241672 |AlignPos : 5.2094593 | 0 hr 00 min
+Train Inter:100 | loss:  0.71750027 |UBFC_my_in : 0.62403655 |CM : -0.011783586 |DM : 0.0934637 |TA : 0.10889238 |AlignPos : 5.452316 | 0 hr 00 min
+Train Inter:200 | loss:  0.32711646 |UBFC_my_in : 0.31111193 |CM : -0.011760215 |DM : 0.016004529 |TA : 0.11389321 |AlignPos : 5.168364 | 0 hr 00 min
+Train Inter:300 | loss:  0.23553734 |UBFC_my_in : 0.20960909 |CM : -0.0120466845 |DM : 0.025928244 |TA : 0.1227321 |AlignPos : 5.3586974 | 0 hr 00 min
+Train Inter:400 | loss:  0.35082513 |UBFC_my_in : 0.17580098 |CM : -0.011249292 |DM : 0.17502414 |TA : 0.11158693 |AlignPos : 5.4167027 | 0 hr 01 min
+Train Inter:500 | loss:  0.16042869 |UBFC_my_in : 0.15196222 |CM : -0.011174547 |DM : 0.008466467 |TA : 0.12514353 |AlignPos : 5.6698165 | 0 hr 01 min
+Train Inter:600 | loss:  0.15254152 |UBFC_my_in : 0.12930363 |CM : -0.010558157 |DM : 0.023237891 |TA : 0.12877947 |AlignPos : 5.1975007 | 0 hr 01 min
+Train Inter:700 | loss:  0.13895106 |UBFC_my_in : 0.12313914 |CM : -0.011387936 |DM : 0.01581192 |TA : 0.12550384 |AlignPos : 5.727847 | 0 hr 02 min
+Train Inter:800 | loss:  0.13342059 |UBFC_my_in : 0.11330825 |CM : -0.011469575 |DM : 0.020112332 |TA : 0.13892776 |AlignPos : 5.691334 | 0 hr 02 min
+Train Inter:900 | loss:  0.12597317 |UBFC_my_in : 0.101257205 |CM : -0.011609076 |DM : 0.024715956 |TA : 0.12548572 |AlignPos : 5.781379 | 0 hr 02 min
+Train Inter:1000 | loss:  0.110728465 |UBFC_my_in : 0.10208386 |CM : -0.0108221285 |DM : 0.0086446 |TA : 0.13200343 |AlignPos : 5.3612213 | 0 hr 03 min
+
+----------------------------------------------- [START 2026-03-15 22:57:00] ---------------------------------------------------
+
+Train Inter:0 | loss:  1.3359184 |UBFC_my_in : 0.98983395 |CM : -0.010440728 |DM : 0.3460845 |TA : 0.07241672 |AlignPos : 5.2094593 | 0 hr 00 min
+Train Inter:100 | loss:  0.71750027 |UBFC_my_in : 0.62403655 |CM : -0.011783586 |DM : 0.0934637 |TA : 0.10889238 |AlignPos : 5.452316 | 0 hr 00 min
+Train Inter:200 | loss:  0.32711646 |UBFC_my_in : 0.31111193 |CM : -0.011760215 |DM : 0.016004529 |TA : 0.11389321 |AlignPos : 5.168364 | 0 hr 00 min
+Train Inter:300 | loss:  0.23553734 |UBFC_my_in : 0.20960909 |CM : -0.0120466845 |DM : 0.025928244 |TA : 0.1227321 |AlignPos : 5.3586974 | 0 hr 00 min
+Train Inter:400 | loss:  0.35082513 |UBFC_my_in : 0.17580098 |CM : -0.011249292 |DM : 0.17502414 |TA : 0.11158693 |AlignPos : 5.4167027 | 0 hr 01 min
+Train Inter:500 | loss:  0.16042869 |UBFC_my_in : 0.15196222 |CM : -0.011174547 |DM : 0.008466467 |TA : 0.12514353 |AlignPos : 5.6698165 | 0 hr 01 min
+Train Inter:600 | loss:  0.15254152 |UBFC_my_in : 0.12930363 |CM : -0.010558157 |DM : 0.023237891 |TA : 0.12877947 |AlignPos : 5.1975007 | 0 hr 01 min
+Train Inter:700 | loss:  0.13895106 |UBFC_my_in : 0.12313914 |CM : -0.011387936 |DM : 0.01581192 |TA : 0.12550384 |AlignPos : 5.727847 | 0 hr 02 min
+Train Inter:800 | loss:  0.13342059 |UBFC_my_in : 0.11330825 |CM : -0.011469575 |DM : 0.020112332 |TA : 0.13892776 |AlignPos : 5.691334 | 0 hr 02 min
+Train Inter:900 | loss:  0.12597317 |UBFC_my_in : 0.101257205 |CM : -0.011609076 |DM : 0.024715956 |TA : 0.12548572 |AlignPos : 5.781379 | 0 hr 02 min
+Train Inter:1000 | loss:  0.110728465 |UBFC_my_in : 0.10208386 |CM : -0.0108221285 |DM : 0.0086446 |TA : 0.13200343 |AlignPos : 5.3612213 | 0 hr 03 min
+
+----------------------------------------------- [START 2026-03-16 16:24:29] ---------------------------------------------------
+
+Train Inter:0 | loss:  1.3359184 |UBFC_my_in : 0.98983395 |CM : -0.010440728 |DM : 0.3460845 |TA : 0.07241672 |AlignPos : 5.2094593 | 0 hr 00 min
+Train Inter:100 | loss:  0.71750027 |UBFC_my_in : 0.62403655 |CM : -0.011783586 |DM : 0.0934637 |TA : 0.10889238 |AlignPos : 5.452316 | 0 hr 00 min
+Train Inter:200 | loss:  0.32711646 |UBFC_my_in : 0.31111193 |CM : -0.011760215 |DM : 0.016004529 |TA : 0.11389321 |AlignPos : 5.168364 | 0 hr 00 min
+Train Inter:300 | loss:  0.23553734 |UBFC_my_in : 0.20960909 |CM : -0.0120466845 |DM : 0.025928244 |TA : 0.1227321 |AlignPos : 5.3586974 | 0 hr 00 min
+Train Inter:400 | loss:  0.35082513 |UBFC_my_in : 0.17580098 |CM : -0.011249292 |DM : 0.17502414 |TA : 0.11158693 |AlignPos : 5.4167027 | 0 hr 01 min
+Train Inter:500 | loss:  0.16042869 |UBFC_my_in : 0.15196222 |CM : -0.011174547 |DM : 0.008466467 |TA : 0.12514353 |AlignPos : 5.6698165 | 0 hr 01 min
+Train Inter:600 | loss:  0.15254152 |UBFC_my_in : 0.12930363 |CM : -0.010558157 |DM : 0.023237891 |TA : 0.12877947 |AlignPos : 5.1975007 | 0 hr 01 min
+Train Inter:700 | loss:  0.13895106 |UBFC_my_in : 0.12313914 |CM : -0.011387936 |DM : 0.01581192 |TA : 0.12550384 |AlignPos : 5.727847 | 0 hr 02 min
+Train Inter:800 | loss:  0.13342059 |UBFC_my_in : 0.11330825 |CM : -0.011469575 |DM : 0.020112332 |TA : 0.13892776 |AlignPos : 5.691334 | 0 hr 02 min
+Train Inter:900 | loss:  0.12597317 |UBFC_my_in : 0.101257205 |CM : -0.011609076 |DM : 0.024715956 |TA : 0.12548572 |AlignPos : 5.781379 | 0 hr 02 min
+Train Inter:1000 | loss:  0.110728465 |UBFC_my_in : 0.10208386 |CM : -0.0108221285 |DM : 0.0086446 |TA : 0.13200343 |AlignPos : 5.3612213 | 0 hr 03 min
