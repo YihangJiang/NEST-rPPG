@@ -27,8 +27,8 @@ from torch.autograd import Variable
 import MyDataset
 import MyLoss
 import model
-import utils
-from utils import Logger, time_to_str
+from utils.core import Logger, time_to_str, get_args
+import utils.train_utils as train_utils
 
 import config
 
@@ -58,12 +58,12 @@ if _USE_JUPYTER_CONFIG:
         # Save per-subject feature representations (av) during training
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0,
+        weight_info=0.01,
         tau_info=0.07,
         grad_clip=5.0,
     )
 else:
-    base_args = utils.get_args()
+    base_args = get_args()
     args = base_args
     if not hasattr(args, 'frames_num'):
         args.frames_num = 256
@@ -159,7 +159,6 @@ print("Test STMap root:", target_root)
 print("Index root:", index_root)
 
 os.makedirs(index_root, exist_ok=True)
-# %%
 def _build_index_if_needed(root_dir, index_dir, stmap_name, label):
     if not os.path.isdir(root_dir):
         raise FileNotFoundError(f"{label} root not found: {root_dir}")
@@ -506,12 +505,7 @@ model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
 torch.save(BaseNet, model_path)
 print('Saved model:', os.path.abspath(model_path))
 
-# %%
-# Wave_sort: regroup per-window BVP into per-subject files (use config path)
-try:
-    wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, rPPGNet_name)
-    utils.train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
-except Exception as e:
-    print('Warning: Wave_sort failed:', repr(e))
+wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, rPPGNet_name)
+train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 
 # %%

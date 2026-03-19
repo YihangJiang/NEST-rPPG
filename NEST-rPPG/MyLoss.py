@@ -239,5 +239,41 @@ def get_loss(bvp_pre, hr_pre, bvp_gt, hr_gt, dataName, \
         raise ValueError(f"get_loss: unknown dataName '{dataName}'")
 
     if torch.sum(torch.isnan(loss)) > 0:
-        print('There in nan loss found in' + dataName)
+        # Print which tensors contain NaNs and save raw tensors once for debugging.
+        try:
+            print(f"[NaN LOSS] dataName={dataName} inter_num={inter_num}")
+            for name, t in [
+                ("bvp_pre", bvp_pre),
+                ("bvp_gt", bvp_gt),
+                ("hr_pre", hr_pre),
+                ("hr_gt", hr_gt),
+                ("loss", loss),
+            ]:
+                if torch.is_tensor(t):
+                    tn = int(torch.isnan(t).sum().item())
+                    tmax = float(torch.nan_to_num(t.detach(), nan=0.0).max().item()) if t.numel() else float("nan")
+                    tmin = float(torch.nan_to_num(t.detach(), nan=0.0).min().item()) if t.numel() else float("nan")
+                    print(f"  {name}: shape={tuple(t.shape)} nan_count={tn} min={tmin:.6g} max={tmax:.6g}")
+            # Save raw tensors that produced NaN (only once per run)
+            if not bool(getattr(args, "_nan_loss_saved", False)):
+                setattr(args, "_nan_loss_saved", True)
+                out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_nan_loss")
+                os.makedirs(out_dir, exist_ok=True)
+                out_path = os.path.join(out_dir, f"nan_loss_{dataName}_iter{int(inter_num):06d}.pt")
+                payload = {
+                    "dataName": dataName,
+                    "inter_num": int(inter_num),
+                    "k": float(k),
+                    "k1k2k3k4k5k6k7k8": [float(k1), float(k2), float(k3), float(k4), float(k5), float(k6), float(k7), float(k8)],
+                    "bvp_pre": bvp_pre.detach().float().cpu(),
+                    "bvp_gt": bvp_gt.detach().float().cpu(),
+                    "hr_pre": hr_pre.detach().float().cpu() if torch.is_tensor(hr_pre) else hr_pre,
+                    "hr_gt": hr_gt.detach().float().cpu() if torch.is_tensor(hr_gt) else hr_gt,
+                    "loss": loss.detach().float().cpu(),
+                }
+                torch.save(payload, out_path)
+                print(f"  Saved debug tensors to: {out_path}")
+        except Exception as e:
+            print(f"[NaN LOSS] debug dump failed: {repr(e)}")
+        
     return loss

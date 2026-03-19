@@ -6,10 +6,7 @@ When run this script, use interpreter: mprppg
 # %%
 
 import os
-import numpy as np
-import scipy.io as scio
-import matplotlib.pyplot as plt
-from scipy.signal import welch
+import json
 
 import config
 from utils.eval_utils import (
@@ -19,10 +16,13 @@ from utils.eval_utils import (
     run_eval,
     visualize_mat_waves,
     estimate_hr_from_psd,
+    plot_subject_error_bars,
+    write_segment_errors_csv,
 )
 
 save_path = config.EVAL_SAVE_PATH
 print(f"Evaluating Wave_sort path: {save_path}")
+
 
 # %%
 # Path to Wave_sort directory (gt/pr .mat pairs). Set Option A or B in config.EVAL_SAVE_PATH.
@@ -41,9 +41,43 @@ hr_bpm = estimate_hr_from_psd(signal, fs=FS_BVP, f_low=0.7, f_high=4.0)
 print(f"Estimated HR (Welch PSD): {hr_bpm:.2f} bpm")
 
 # %%
-result = run_eval(save_path)
+# Evaluate + collect per-segment details for analysis outputs
+result, details = run_eval(save_path, return_details=True)
+
+# Save analysis outputs under: <Wave_sort run folder>/feature/
+feature_dir = os.path.join(save_path, "feature")
+os.makedirs(feature_dir, exist_ok=True)
+
+# 1) CSV: per-segment errors
+csv_path = os.path.join(feature_dir, "segment_errors.csv")
+write_segment_errors_csv(details, csv_path)
+print(f"Saved segment errors CSV: {csv_path}")
+
+# 2) Bar plot: per-subject mean/median error
+bar_path = os.path.join(feature_dir, "subject_error_bars.png")
+plot_subject_error_bars(
+    details,
+    title=f"{config.SRC_DOMAIN} -> {config.TGT_DOMAIN} ({config.LOSS_TYPE})",
+    save_path=bar_path,
+)
+print(f"Saved subject error bar plot: {bar_path}")
+
+# 3) JSON: summary metrics + context
+json_path = os.path.join(feature_dir, "eval_result.json")
+payload = {
+    "save_path": save_path,
+    "source_domain": config.SRC_DOMAIN,
+    "target_domain": config.TGT_DOMAIN,
+    "loss_type": config.LOSS_TYPE,
+    "result": result,
+}
+with open(json_path, "w") as f:
+    json.dump(payload, f, indent=2)
+print(f"Saved eval summary JSON: {json_path}")
 
 # Print table: ME, Std, MAE, RMSE, MER, Pearson r
+print(f"Source domain: {config.SRC_DOMAIN}")
+print(f"Target domain: {config.TGT_DOMAIN}")
 print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER\t\tr")
 print("-" * 90)
 for name, metrics in result.items():

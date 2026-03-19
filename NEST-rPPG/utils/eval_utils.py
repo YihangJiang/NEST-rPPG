@@ -11,7 +11,8 @@ Functions moved from eval_from_bvp.py so they can be reused:
 - visualize_mat_waves
 """
 import os
-from typing import List, Optional, Dict, Any
+import csv
+from typing import List, Optional, Dict, Any, Tuple
 
 import numpy as np
 import scipy.io as scio
@@ -86,7 +87,11 @@ def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
     return me, e_std, mae, rmse, mer, p
 
 
-def run_eval(save_path: str) -> Dict[str, Dict[str, Any]]:
+def run_eval(
+    save_path: str,
+    *,
+    return_details: bool = False,
+) -> Dict[str, Dict[str, Any]] | Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """
     Load gt/pr .mat pairs, compute FFT heart rate per segment (no interpolation, fs=FS_BVP).
     Average HR per subject, then compute ME, Std, MAE, RMSE, MER, Pearson r.
@@ -108,8 +113,13 @@ def run_eval(save_path: str) -> Dict[str, Dict[str, Any]]:
     if not common_ids:
         raise FileNotFoundError(f"No gt/pr .mat pairs found in {save_path}")
 
-    hr_pr_per_subject = []
-    hr_gt_per_subject = []
+    hr_pr_per_subject: List[float] = []
+    hr_gt_per_subject: List[float] = []
+    details: Dict[str, Any] = {
+        "save_path": save_path,
+        "subjects": [],  # list of per-subject dicts (with per-segment arrays)
+        "rows": [],      # flat rows for CSV writing (subject_id, segment_idx, hr_gt, hr_pr, err)
+    }
     print(common_ids)
     print(f"Found {len(common_ids)} subject pairs. Computing FFT HR only (fs={FS_BVP} Hz, no interpolation)...")
     for sid in tqdm(common_ids, desc="Subjects", unit="subject"):
@@ -125,16 +135,38 @@ def run_eval(save_path: str) -> Dict[str, Dict[str, Any]]:
         if num == 0:
             print(f"Warning: Subject {sid} has no segments, skipping...")
             continue
-        hr_pr_list = []
-        hr_gt_list = []
+        hr_pr_list: List[float] = []
+        hr_gt_list: List[float] = []
         for n in range(num):
             wave_pr_one = np.asarray(Wave_pr[n, :], dtype=float)
             wave_gt_one = np.asarray(Wave_gt[n, :], dtype=float)
-            hr_pr_list.append(hr_from_fft(wave_pr_one, fs=FS_BVP))
-            hr_gt_list.append(hr_from_fft(wave_gt_one, fs=FS_BVP))
+            hr_pr_n = hr_from_fft(wave_pr_one, fs=FS_BVP)
+            hr_gt_n = hr_from_fft(wave_gt_one, fs=FS_BVP)
+            hr_pr_list.append(hr_pr_n)
+            hr_gt_list.append(hr_gt_n)
+            details["rows"].append({
+                "subject_id": sid,
+                "segment_idx": int(n),
+                "hr_gt_bpm": float(hr_gt_n) if np.isfinite(hr_gt_n) else np.nan,
+                "hr_pr_bpm": float(hr_pr_n) if np.isfinite(hr_pr_n) else np.nan,
+                "err_bpm": float(hr_pr_n - hr_gt_n) if (np.isfinite(hr_pr_n) and np.isfinite(hr_gt_n)) else np.nan,
+            })
         with np.errstate(invalid="ignore"):
-            hr_pr_per_subject.append(np.nanmean(hr_pr_list))
-            hr_gt_per_subject.append(np.nanmean(hr_gt_list))
+            subj_hr_pr = float(np.nanmean(hr_pr_list))
+            subj_hr_gt = float(np.nanmean(hr_gt_list))
+            hr_pr_per_subject.append(subj_hr_pr)
+            hr_gt_per_subject.append(subj_hr_gt)
+
+        details["subjects"].append({
+            "subject_id": sid,
+            "hr_gt_segments_bpm": np.array(hr_gt_list, dtype=float),
+            "hr_pr_segments_bpm": np.array(hr_pr_list, dtype=float),
+            "err_segments_bpm": np.array(hr_pr_list, dtype=float) - np.array(hr_gt_list, dtype=float),
+            "mean_err_bpm": float(np.nanmean(np.array(hr_pr_list) - np.array(hr_gt_list))),
+            "median_err_bpm": float(np.nanmedian(np.array(hr_pr_list) - np.array(hr_gt_list))),
+            "mean_hr_gt_bpm": subj_hr_gt,
+            "mean_hr_pr_bpm": subj_hr_pr,
+        })
 
     if len(hr_pr_per_subject) == 0:
         raise ValueError("No valid data found - all subjects have empty arrays")
@@ -143,7 +175,95 @@ def run_eval(save_path: str) -> Dict[str, Dict[str, Any]]:
     hr_gt = np.array(hr_gt_per_subject)
     me, e_std, mae, rmse, mer, p = my_eval(hr_pr, hr_gt)
     result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse, "MER": mer, "r": p}}
+    if return_details:
+        details["hr_gt_subject_mean_bpm"] = hr_gt
+        details["hr_pr_subject_mean_bpm"] = hr_pr
+        details["err_subject_mean_bpm"] = hr_pr - hr_gt
+        return result, details
     return result
+
+
+def plot_subject_error_bars(
+    details: Dict[str, Any],
+    *,
+    top_k: Optional[int] = None,
+    sort_by: str = "mean_abs",  # mean_abs | mean | median
+    title: Optional[str] = None,
+    figsize: Tuple[int, int] = (14, 5),
+    save_path: Optional[str] = None,
+):
+    """
+    Bar plot per subject (gt/pr pair) error summaries based on segment-level errors.
+
+    Plots two bars per subject:
+    - mean error over segments
+    - median error over segments
+    """
+    subjects = list(details.get("subjects", []))
+    if not subjects:
+        raise ValueError("details has no subjects. Call run_eval(..., return_details=True) first.")
+
+    def key_fn(s):
+        mean_e = float(s.get("mean_err_bpm", np.nan))
+        med_e = float(s.get("median_err_bpm", np.nan))
+        if sort_by == "mean":
+            return abs(mean_e) if np.isfinite(mean_e) else float("inf")
+        if sort_by == "median":
+            return abs(med_e) if np.isfinite(med_e) else float("inf")
+        # default: mean_abs
+        return abs(mean_e) if np.isfinite(mean_e) else float("inf")
+
+    subjects = sorted(subjects, key=key_fn, reverse=True)
+    if top_k is not None:
+        subjects = subjects[: int(top_k)]
+
+    ids = [s["subject_id"] for s in subjects]
+    mean_err = np.array([s.get("mean_err_bpm", np.nan) for s in subjects], dtype=float)
+    med_err = np.array([s.get("median_err_bpm", np.nan) for s in subjects], dtype=float)
+
+    x = np.arange(len(ids))
+    w = 0.42
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    ax.bar(x - w / 2, mean_err, width=w, label="Mean error (BPM)")
+    ax.bar(x + w / 2, med_err, width=w, label="Median error (BPM)")
+    ax.axhline(0.0, color="k", linewidth=1.0, alpha=0.5)
+    ax.set_xticks(x)
+    ax.set_xticklabels(ids, rotation=60, ha="right")
+    ax.set_ylabel("Error (Pred - GT) [BPM]")
+    ax.legend()
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.set_title(title or "Per-subject error summary (segment HR)")
+    plt.tight_layout()
+
+    if save_path is not None:
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        fig.savefig(save_path, dpi=150)
+    return fig, ax
+
+
+def write_segment_errors_csv(details: Dict[str, Any], csv_path: str) -> str:
+    """
+    Write per-segment HR and error to CSV.
+
+    CSV columns:
+    - subject_id
+    - segment_idx
+    - hr_gt_bpm
+    - hr_pr_bpm
+    - err_bpm
+    """
+    rows = list(details.get("rows", []))
+    if not rows:
+        raise ValueError("details has no rows. Call run_eval(..., return_details=True) first.")
+
+    os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
+    fieldnames = ["subject_id", "segment_idx", "hr_gt_bpm", "hr_pr_bpm", "err_bpm"]
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in fieldnames})
+    return os.path.abspath(csv_path)
 
 
 def visualize_mat_waves(
@@ -272,4 +392,3 @@ def estimate_hr_from_psd(signal: np.ndarray, fs: float = FS_BVP,
     psd_hr = psd[band]
     peak_freq = f_hr[np.argmax(psd_hr)]
     return float(peak_freq * 60.0)
-

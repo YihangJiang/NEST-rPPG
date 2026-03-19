@@ -16,7 +16,6 @@ from torch.autograd import Variable
 from torchvision import transforms
 from datetime import datetime
 import os
-import time
 from utils.core import Logger, time_to_str, get_args
 from utils import train_utils
 from timeit import default_timer as timer
@@ -74,6 +73,13 @@ print("=" * 60)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
+# Force deterministic algorithms where possible (warn instead of hard error)
+try:
+    torch.use_deterministic_algorithms(True, warn_only=True)
+except Exception:
+    pass
+
 # Source: single domain if --src set, else all 4 except target
 if getattr(args, 'src', None) is not None:
     Source_domain_Names = [args.src]

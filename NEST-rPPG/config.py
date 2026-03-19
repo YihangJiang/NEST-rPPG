@@ -37,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'UBFC_my_rm'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'BUAA_my_rm'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'BUAA_my_rm'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my_rm'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
@@ -57,7 +57,7 @@ TARGET_DOMAIN = {
     # train_my: test domain -> 3 source-region domains (order matters: cheek, target, eye)
     'UBFC_my_in': ['PURE_my_rm', 'PURE_my_in', 'PURE_my_eye'],
     'PURE_my_in': ['BUAA_my_rm', 'BUAA_my_in', 'BUAA_my_eye'],
-    'BUAA_my_in': ['UBFC_my_rm', 'UBFC_my_in', 'UBFC_my_eye'],
+    'BUAA_my_in': ['PURE_my_rm', 'PURE_my_in', 'PURE_my_eye'],
 }
 
 # Data paths: PURE and UBFC use STMap_my (PURE_my, UBFC_my); others use STMap/
