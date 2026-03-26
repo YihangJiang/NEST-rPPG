@@ -18,16 +18,13 @@ from utils.eval_utils import (
     estimate_hr_from_psd,
     plot_subject_error_bars,
     write_segment_errors_csv,
+    plot_worst_subject_from_segment_csv,
+    plot_worst_subject_signals,
 )
 
 save_path = config.EVAL_SAVE_PATH
 print(f"Evaluating Wave_sort path: {save_path}")
 
-
-# %%
-# Path to Wave_sort directory (gt/pr .mat pairs). Set Option A or B in config.EVAL_SAVE_PATH.
-# Name for first-level visualization subfolder under save_path/vis/.
-# Final structure: Wave_sort/<TGT_DOMAIN>/vis/<VIS_RUN_NAME>/<subject_id>/
 
 # %%
 # Optional: visualize waves before evaluation (example usage)
@@ -57,10 +54,33 @@ print(f"Saved segment errors CSV: {csv_path}")
 bar_path = os.path.join(feature_dir, "subject_error_bars.png")
 plot_subject_error_bars(
     details,
-    title=f"{config.SRC_DOMAIN} -> {config.TGT_DOMAIN} ({config.LOSS_TYPE})",
+    title=f"{config.SRC_DOMAIN} -> {config.TGT_DOMAIN}",
     save_path=bar_path,
 )
 print(f"Saved subject error bar plot: {bar_path}")
+
+# 2.5) Plot the worst subject by absolute error
+worst_plot_path = os.path.join(feature_dir, "worst_subject_plot.png")
+worst_sid, worst_score = plot_worst_subject_from_segment_csv(
+    csv_path,
+    metric="max_abs",
+    save_fig_path=worst_plot_path,
+    show=False,
+)
+print(f"Saved worst subject plot: {worst_plot_path}")
+print(f"Worst subject: {worst_sid} (max_abs_err={worst_score:.4g} BPM)")
+
+# 2.6) Plot worst subject GT/Pred signals for 20 segments
+worst_signals_path = os.path.join(feature_dir, "worst_subject_signals.png")
+plot_worst_subject_signals(
+    save_path,
+    csv_path,
+    num_segments=10,
+    worst_subject_id=worst_sid,
+    save_fig_path=worst_signals_path,
+    show=False,
+)
+print(f"Saved worst subject signals plot: {worst_signals_path}")
 
 # 3) JSON: summary metrics + context
 json_path = os.path.join(feature_dir, "eval_result.json")
@@ -85,5 +105,15 @@ for name, metrics in result.items():
         f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
         f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}\t{metrics['r']:.6f}"
     )
+
+# %%
+# Optional: visualize one BUAA subject / segment. Wave_sort ids match the filename prefix before
+# "gt_Wave.mat" (e.g. "Sub_06lux 10.0", lowercase "lux"). Set config.EVAL_SAVE_PATH to that run.
+_pairs = visualize_mat_waves(
+    save_path,
+    subject_ids=["Sub_06lux 10.0"],
+    segment_indices=[145],
+    vis_run_name="check",
+)
 
 # %%

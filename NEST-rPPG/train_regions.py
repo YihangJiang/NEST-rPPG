@@ -5,8 +5,8 @@
 # test on a different dataset/region. Source regions and test domain come from config.
 # Run as script: python train_regions.py
 # Run in Jupyter: execute cells in order (Cell 1 = config, Cell 2 = rest or run all)
-%reload_ext autoreload
-%autoreload 2
+# %reload_ext autoreload
+# %autoreload 2
 
 import os
 import random
@@ -35,7 +35,7 @@ import config
 # %%
 # ============ Cell 1: Config (constants) ============
 # True = use constants below (Jupyter). False = use command-line args (python train_my.py ...).
-_USE_JUPYTER_CONFIG = True
+_USE_JUPYTER_CONFIG = False 
 
 if _USE_JUPYTER_CONFIG:
     args = SimpleNamespace(
@@ -50,7 +50,8 @@ if _USE_JUPYTER_CONFIG:
         temporal_aug_rate=config.TEMPORAL_AUG_RATE,
         spatial_aug_rate=config.SPATIAL_AUG_RATE,
         loss_type=config.LOSS_TYPE,  # One / TA / CM / DM / All
-        frames_num=256,
+        frames_num=512,
+        tgt=config.TGT_DOMAIN,
         # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[config.TGT_DOMAIN][1], i.e., *_in)
         source_domain=None,
         stmap_name=config.STMAP_NAME,
@@ -60,31 +61,41 @@ if _USE_JUPYTER_CONFIG:
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
         weight_info=0.01,
         tau_info=0.07,
+        # When False: disable InfoNCE (no pos/neg forwards, align_pos_loss=0).
+        # When True: use pos/neg domains for contrastive alignment.
+        use_infonce=False,
         grad_clip=5.0,
     )
 else:
     base_args = get_args()
     args = base_args
     if not hasattr(args, 'frames_num'):
-        args.frames_num = 256
-    if not hasattr(args, 'source_domain'):
-        args.source_domain = None
+        args.frames_num = 512
+    if not hasattr(args, 'tgt'):
+        args.tgt = config.TGT_DOMAIN
+    if not hasattr(args, 'src') or args.src is None:
+        raise ValueError("Please provide --src <base_source_domain> (e.g. --src PURE_my)")
     if not hasattr(args, 'stmap_name'):
         args.stmap_name = config.STMAP_NAME
     if not hasattr(args, 'index_root'):
         args.index_root = config.STMAP_INDEX_BASE
     if not hasattr(args, 'max_iter'):
-        args.max_iter = 3000
+        args.max_iter = 1000
     if not hasattr(args, 'loss_type'):
         args.loss_type = config.LOSS_TYPE
     if not hasattr(args, 'save_features'):
         args.save_features = False
     if not hasattr(args, 'tau_info'):
         args.tau_info = 0.07
+    if not hasattr(args, 'use_infonce'):
+        args.use_infonce = False
     if not hasattr(args, 'seed'):
         args.seed = 0
     if not hasattr(args, 'grad_clip'):
         args.grad_clip = 5.0
+    if not hasattr(args, 'weight_info'):
+        # Used later as: loss = loss + args.weight_info * align_pos_loss
+        args.weight_info = 0.01
 
 # ============ End Cell 1 ============
 
@@ -110,71 +121,88 @@ _set_seed(args.seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 print("  Random seed:", args.seed, "(deterministic training)")
+print("  weight_info:", getattr(args, "weight_info", 0.0))
 
-# Baseline: only `_in` ROI is used for training,
-# but we still keep all three region domains (cheek, target, eye) loaded
-# so it is easy to plug in region-specific logic later.
-# - test domain: config.TGT_DOMAIN (e.g. UBFC_my_in)
-# - 3 region domains for this test domain: cheek, target, eye
-src_domains = config.TARGET_DOMAIN[config.TGT_DOMAIN]
-cheek_domain, target_region_domain, eye_domain = src_domains[0], src_domains[1], src_domains[2]
+# Test/target domain can be passed from CLI via -t/--tgt.
+tgt_domain = args.tgt
+if tgt_domain not in config.FILEA_NAME:
+    raise ValueError(f"Target domain has no FILEA_NAME entry: {tgt_domain}")
 
-# For later region-aware methods, treat:
-# - pos_domain: typically the cheek region (e.g. PURE_my_rm)
-# - neg_domain: typically the eye region  (e.g. PURE_my_eye)
-pos_domain = cheek_domain
-neg_domain = eye_domain
+# Base source (first words): must come from --src in utils/core.py.
+base_src = args.src
+suffix = tgt_domain.rsplit("_", 1)[-1]  # e.g. BUAA_my_in -> in
 
-# Baseline source domain (ROI "_in"): allow override via args.source_domain
-default_source_domain = target_region_domain
-source_domain = args.source_domain or default_source_domain
+# Region suffixes (requested behavior):
+# - pos domain uses rm
+# - neg domain uses eye
+# - source domain uses same suffix as tgt
+pos_domain = f"{base_src}_rm"
+neg_domain = f"{base_src}_eye"
+source_domain = f"{base_src}_{suffix}"
 
-# Roots for each region domain and test domain
-region_domains = [cheek_domain, target_region_domain, eye_domain]
+region_domains = [pos_domain, source_domain, neg_domain]
+for d in region_domains:
+    if d not in config.FILEA_NAME:
+        raise ValueError(
+            f"Derived region domain {d!r} has no FILEA_NAME entry. "
+            f"Check that base_src={base_src!r} and tgt_domain={tgt_domain!r} are compatible."
+        )
+
+# Roots for each region domain and target domain
 region_roots = {
     d: os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[d][0])
     for d in region_domains
 }
-target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[config.TGT_DOMAIN][0])
 index_root = args.index_root
 
-# Index dirs for each region and for the test domain
+# Index dirs for each region and for the target domain
 region_index_dirs = {d: os.path.join(index_root, d) for d in region_domains}
 source_index_dir = region_index_dirs[source_domain]
-target_index_dir = os.path.join(index_root, config.TGT_DOMAIN)
+target_root = os.path.join(config.STMAP_PARENT_ROOT, config.FILEA_NAME[tgt_domain][0])
+target_index_dir = os.path.join(index_root, tgt_domain)
 
 frames_num = args.frames_num
 batch_size = args.batchsize
 num_workers = args.num_workers
 GPU = args.GPU
 
-print("Source region domains (config.TARGET_DOMAIN[test]):", src_domains)
-print("Test domain:", config.TGT_DOMAIN)
-print("  test_domain  :", config.TGT_DOMAIN)
-print("Region STMap roots:")
-print("  cheek (pos_domain):", region_roots[cheek_domain])
-print("  target          :", region_roots[target_region_domain])
-print("  eye   (neg_domain):", region_roots[eye_domain])
+print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
+print("  base_src      :", base_src)
+print("  tgt_domain    :", tgt_domain)
+print("  suffix        :", suffix)
+print("  use_infonce   :", args.use_infonce)
+print("  pos_domain    :", pos_domain)
+print("  source_domain :", source_domain)
+print("  neg_domain    :", neg_domain)
 print("Test STMap root:", target_root)
 print("Index root:", index_root)
 
 os.makedirs(index_root, exist_ok=True)
-def _build_index_if_needed(root_dir, index_dir, stmap_name, label):
+def _build_index_always(root_dir, index_dir, stmap_name, label):
     if not os.path.isdir(root_dir):
         raise FileNotFoundError(f"{label} root not found: {root_dir}")
-    if not os.path.exists(index_dir) or not os.listdir(index_dir):
-        print(f"Building index for {label}:")
-        files_list = sorted([f for f in os.listdir(root_dir) if not f.startswith('.')])
-        MyDataset.getIndex(root_dir, files_list, index_dir, stmap_name, 10, frames_num)
-    else:
-        print(f"Using existing index for {label}: {index_dir}")
+    os.makedirs(index_dir, exist_ok=True)
 
-# Build / reuse indexes for all three region domains (cheek, target, eye)
+    # Match train.py behavior: always clear and rebuild index files.
+    removed = 0
+    for fname in os.listdir(index_dir):
+        fpath = os.path.join(index_dir, fname)
+        if os.path.isfile(fpath):
+            os.remove(fpath)
+            removed += 1
+    if removed:
+        print(f"  Cleared {removed} index files in {index_dir}")
+
+    print(f"Building index for {label}:")
+    files_list = sorted([f for f in os.listdir(root_dir) if not f.startswith('.')])
+    MyDataset.getIndex(root_dir, files_list, index_dir, stmap_name, 10, frames_num)
+
+# Build indexes for all three region domains (cheek, target, eye)
 for d in region_domains:
-    _build_index_if_needed(region_roots[d], region_index_dirs[d], args.stmap_name, d)
+    _build_index_always(region_roots[d], region_index_dirs[d], args.stmap_name, d)
 
 # And for the test domain (target of evaluation)
-_build_index_if_needed(target_root, target_index_dir, args.stmap_name, config.TGT_DOMAIN)
+_build_index_always(target_root, target_index_dir, args.stmap_name, tgt_domain)
 
 print("Loading datasets...")
 
@@ -219,14 +247,14 @@ source_db = MyDataset.Data_DG(
 )
 target_db = MyDataset.Data_DG(
     root_dir=target_index_dir,
-    dataName=config.canonical_data_name(config.TGT_DOMAIN),
+    dataName=config.canonical_data_name(tgt_domain),
     STMap=args.stmap_name,
     frames_num=frames_num,
     args=args
 )
 
 print("  baseline source dataset:", source_domain, "num_samples =", len(source_db))
-print("  baseline test dataset  :", config.TGT_DOMAIN, "num_samples =", len(target_db))
+print("  baseline test dataset  :", tgt_domain, "num_samples =", len(target_db))
 
 print("Creating DataLoaders (baseline like train.py)...")
 # Fixed generator so shuffle order is reproducible across runs
@@ -276,8 +304,8 @@ loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8).to(device)
 # Logging & model name (use config paths)
 os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
 
-# Naming: rPPGNet_<test_domain>_src<target_region> (e.g. rPPGNet_UBFC_my_in_srcPURE_my_in)
-Target_name = config.TGT_DOMAIN
+# Naming: rPPGNet_<tgt_domain>_src<target_region> (e.g. rPPGNet_UBFC_my_in_srcPURE_my_in)
+Target_name = tgt_domain
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=source_domain,
@@ -341,33 +369,52 @@ for iter_num in range(max_iter + 1):
     data_aug = Variable(data_aug).float().to(device=device)
     bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
     HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
-    # Positive/negative-domain batches for InfoNCE.
-    # Important: run these auxiliary forwards WITHOUT updating BN stats and WITHOUT gradients,
-    # otherwise train_regions is much more unstable than train.py (extra train-mode forwards).
-    try:
-        pos_data, _, _, _, _, _, _ = pos_iter.__next__()
-    except StopIteration:
-        pos_iter = pos_loader.__iter__()
-        pos_data, _, _, _, _, _, _ = pos_iter.__next__()
-    try:
-        neg_data, _, _, _, _, _, _ = neg_iter.__next__()
-    except StopIteration:
-        neg_iter = neg_loader.__iter__()
-        neg_data, _, _, _, _, _, _ = neg_iter.__next__()
+    # Optional InfoNCE contrastive alignment (pos/neg domains).
+    # When disabled, we don't run pos/neg forwards and align_pos_loss stays 0.
+    use_infonce = bool(getattr(args, "use_infonce", False))
+    align_pos_loss = torch.tensor(0.0, device=device)
+    av_pos = None
+    av_neg = None
 
-    pos_data = Variable(pos_data).float().to(device=device)
-    neg_data = Variable(neg_data).float().to(device=device)
+    if use_infonce:
+        # Positive/negative-domain batches for InfoNCE.
+        # Important: run these auxiliary forwards WITHOUT gradients.
+        try:
+            pos_data, _, _, _, _, _, _ = pos_iter.__next__()
+        except StopIteration:
+            pos_iter = pos_loader.__iter__()
+            pos_data, _, _, _, _, _, _ = pos_iter.__next__()
+        try:
+            neg_data, _, _, _, _, _, _ = neg_iter.__next__()
+        except StopIteration:
+            neg_iter = neg_loader.__iter__()
+            neg_data, _, _, _, _, _, _ = neg_iter.__next__()
 
-    BaseNet.eval()
-    with torch.no_grad():
-        _, _, av_pos = BaseNet(pos_data)
-        _, _, av_neg = BaseNet(neg_data)
-    BaseNet.train()
+        pos_data = Variable(pos_data).float().to(device=device)
+        neg_data = Variable(neg_data).float().to(device=device)
+
+        BaseNet.eval()
+        with torch.no_grad():
+            _, _, av_pos = BaseNet(pos_data)
+            _, _, av_neg = BaseNet(neg_data)
+        BaseNet.train()
 
 
     optimizer.zero_grad()
     bvp_pre, HR_pr, av = BaseNet(data)
     bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
+
+    if use_infonce:
+        # InfoNCE-style alignment: pull src av toward pos av and push away from neg av.
+        m = av.shape[0]
+        tau = float(getattr(args, 'tau_info', 0.07))
+        q = F.normalize(av, dim=1)
+        k_pos = F.normalize(av_pos[:m], dim=1)
+        k_neg = F.normalize(av_neg[:m], dim=1)
+        keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
+        logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
+        labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
+        align_pos_loss = F.cross_entropy(logits, labels)
 
     # One-time NaN diagnostics (helps locate first NaN source)
     if not _printed_nan_debug:
@@ -406,10 +453,10 @@ for iter_num in range(max_iter + 1):
         bvp_pre, HR_pr, bvp, HR_rel, source_domain,
         loss_func_NP, loss_func_L1, args, iter_num
     )
-    src_loss_aug = MyLoss.get_loss(
-        bvp_pre_aug, HR_pr_aug, bvp_aug, HR_rel_aug, source_domain,
-        loss_func_NP, loss_func_L1, args, iter_num
-    )
+    # src_loss_aug = MyLoss.get_loss(
+    #     bvp_pre_aug, HR_pr_aug, bvp_aug, HR_rel_aug, source_domain,
+    #     loss_func_NP, loss_func_L1, args, iter_num
+    # )
 
     loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
     loss_DM = loss_func_NEST_DM(av, av_aug)
@@ -418,16 +465,7 @@ for iter_num in range(max_iter + 1):
         torch.cat((HR_rel, HR_rel_aug), dim=0)
     )
 
-    # InfoNCE-style alignment: pull src av toward pos_domain av and push away from neg_domain av
-    m = av.shape[0]
-    tau = float(getattr(args, 'tau_info', 0.07))
-    q = F.normalize(av, dim=1)
-    k_pos = F.normalize(av_pos[:m], dim=1)
-    k_neg = F.normalize(av_neg[:m], dim=1)
-    keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
-    logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
-    labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
-    align_pos_loss = F.cross_entropy(logits, labels)
+    # (InfoNCE alignment handled above; align_pos_loss is 0 if disabled.)
 
     loss_type = getattr(args, 'loss_type', config.LOSS_TYPE)
     if loss_type == 'One':
@@ -478,6 +516,7 @@ HR_pr_list = []
 HR_rel_list = []
 BVP_ALL = []
 BVP_PR_ALL = []
+nan_debug_saved = False
 
 with torch.no_grad():
     for step, (data, bvp, HR_rel, _, _, _, paths) in enumerate(tgt_loader):
@@ -488,6 +527,20 @@ with torch.no_grad():
 
         Wave = bvp
         Wave_pr, HR_pr, av = BaseNet(data)
+
+        # Debug: check decoder signal output stability during inference.
+        # This explains NaNs later in `Wave_sort` / `eval_from_bvp.py`.
+        has_nan = torch.isnan(Wave_pr).any().item()
+        has_inf = torch.isinf(Wave_pr).any().item()
+        if (has_nan or has_inf) and not nan_debug_saved:
+            nan_cnt = int(torch.isnan(Wave_pr).sum().item())
+            inf_cnt = int(torch.isinf(Wave_pr).sum().item())
+            print(
+                f"[WARN] NaN/Inf in Wave_pr during inference: "
+                f"step={step} nan_count={nan_cnt} inf_count={inf_cnt} "
+                f"Wave_pr_shape={tuple(Wave_pr.shape)}"
+            )
+            nan_debug_saved = True
 
         HR_rel_list.extend(HR_rel.data.cpu().numpy())
         HR_pr_list.extend(HR_pr.data.cpu().numpy())
@@ -505,7 +558,7 @@ model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
 torch.save(BaseNet, model_path)
 print('Saved model:', os.path.abspath(model_path))
 
-wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, config.TGT_DOMAIN, rPPGNet_name)
+wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
 
 # %%

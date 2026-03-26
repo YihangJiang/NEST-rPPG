@@ -36,7 +36,7 @@ if _USE_JUPYTER_CONFIG:
         num_workers=2,
         epochs=64 * 64 * 64,
         batchsize=100,
-        lr=0.001,
+        lr=0.0005,
         fold_num=5,
         fold_index=0,
         reTrain=0,
@@ -48,7 +48,7 @@ if _USE_JUPYTER_CONFIG:
         form='Resize',
         weight=36,
         height=36,
-        frames_num=256,
+        frames_num=512,
         tgt=config.TGT_DOMAIN,
         src=config.SRC_DOMAIN,
         loss_type=config.LOSS_TYPE,
@@ -60,6 +60,7 @@ else:
         ('loss_type', config.LOSS_TYPE),
         ('tgt', config.TGT_DOMAIN),
         ('src', config.SRC_DOMAIN),
+        ('frames_num', 512),
         ('temporal_aug_rate', config.TEMPORAL_AUG_RATE),
         ('spatial_aug_rate', config.SPATIAL_AUG_RATE),
         ('wave_sort_root', config.WAVE_SORT_ROOT),
@@ -346,6 +347,7 @@ HR_pr_temp = []
 HR_rel_temp = []
 BVP_ALL = []
 BVP_PR_ALL = []
+nan_debug_saved = False
 for step, (data, bvp, HR_rel, _, _, _, _) in enumerate(tgt_loader):
     data = Variable(data).float().to(device=device)
     bvp = Variable(bvp).float().to(device=device)
@@ -353,6 +355,20 @@ for step, (data, bvp, HR_rel, _, _, _, _) in enumerate(tgt_loader):
     bvp = bvp.unsqueeze(dim=1)
     Wave = bvp
     Wave_pr, HR_pr, av = BaseNet(data)
+
+    # Debug: check decoder signal output stability during inference.
+    # If this fires, it explains NaNs later in `Wave_sort` / `eval_from_bvp.py`.
+    has_nan = torch.isnan(Wave_pr).any().item()
+    has_inf = torch.isinf(Wave_pr).any().item()
+    if (has_nan or has_inf) and not nan_debug_saved:
+        nan_cnt = int(torch.isnan(Wave_pr).sum().item())
+        inf_cnt = int(torch.isinf(Wave_pr).sum().item())
+        print(
+            f"[WARN] NaN/Inf in Wave_pr during inference: "
+            f"step={step} nan_count={nan_cnt} inf_count={inf_cnt} "
+            f"Wave_pr_shape={tuple(Wave_pr.shape)}"
+        )
+        nan_debug_saved = True
 
     HR_rel_temp.extend(HR_rel.data.cpu().numpy())
     HR_pr_temp.extend(HR_pr.data.cpu().numpy())

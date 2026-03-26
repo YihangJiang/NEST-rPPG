@@ -29,10 +29,12 @@ class Data_DG(Dataset):
         self.args = args
 
 
-        self.transform =transforms.Compose([transforms.Resize(size=(64, 256)),
-                                            transforms.ToTensor()])
+        resize_size = (64, self.frames_num)
+        self.transform = transforms.Compose(
+            [transforms.Resize(size=resize_size), transforms.ToTensor()]
+        )
         self.transform_aug = transforms.Compose([
-            transforms.Resize(size=(64, 256)),
+            transforms.Resize(size=resize_size),
             # transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.1),
             # transforms.RandomGrayscale(p=0.1),
             # transforms.RandomApply([transforms.GaussianBlur(kernel_size=7, sigma=(0.1, 2.0))], p=0.5),

@@ -120,6 +120,8 @@ def get_args():
                         help='the num of frames')
     parser.add_argument('-t', '--tgt', dest='tgt', type=str, default='VIPL',
                         help='the name of target domain: VIPL, COH, V4V, UBFC, PURE...')
+    parser.add_argument('--use_infonce', action='store_true',
+                        help='Enable InfoNCE contrastive alignment with pos/neg domains')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
     return parser.parse_args()

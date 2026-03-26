@@ -1,0 +1,14 @@
+
+----------------------------------------------- [START 2026-03-25 10:43:16] ---------------------------------------------------
+
+Train Inter:0 | loss:  1.3703685 |UBFC_my_rm : 0.9978672 |CM : -0.011667347 |DM : 0.37250122 |TA : 0.060910046 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:100 | loss:  0.27460456 |UBFC_my_rm : 0.2087549 |CM : -0.012229622 |DM : 0.06584968 |TA : 0.10334855 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:200 | loss:  0.2329815 |UBFC_my_rm : 0.16794664 |CM : -0.012445705 |DM : 0.065034874 |TA : 0.10812622 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:300 | loss:  0.20977573 |UBFC_my_rm : 0.15386993 |CM : -0.012751648 |DM : 0.055905808 |TA : 0.12228143 |AlignPos : 0.0 | 0 hr 01 min
+Train Inter:400 | loss:  0.22028673 |UBFC_my_rm : 0.15920907 |CM : -0.011627738 |DM : 0.061077647 |TA : 0.11991793 |AlignPos : 0.0 | 0 hr 01 min
+Train Inter:500 | loss:  0.19538827 |UBFC_my_rm : 0.15114093 |CM : -0.011517077 |DM : 0.04424734 |TA : 0.12183678 |AlignPos : 0.0 | 0 hr 02 min
+Train Inter:600 | loss:  0.2099773 |UBFC_my_rm : 0.13319856 |CM : -0.012746316 |DM : 0.07677873 |TA : 0.11919254 |AlignPos : 0.0 | 0 hr 02 min
+Train Inter:700 | loss:  0.20244753 |UBFC_my_rm : 0.13974857 |CM : -0.011956522 |DM : 0.06269896 |TA : 0.11886269 |AlignPos : 0.0 | 0 hr 02 min
+Train Inter:800 | loss:  0.1597195 |UBFC_my_rm : 0.11646396 |CM : -0.012307738 |DM : 0.043255538 |TA : 0.12742853 |AlignPos : 0.0 | 0 hr 03 min
+Train Inter:900 | loss:  0.16506767 |UBFC_my_rm : 0.13174814 |CM : -0.0124592595 |DM : 0.033319533 |TA : 0.1323784 |AlignPos : 0.0 | 0 hr 03 min
+Train Inter:1000 | loss:  0.1417109 |UBFC_my_rm : 0.11721927 |CM : -0.011383933 |DM : 0.024491634 |TA : 0.12401825 |AlignPos : 0.0 | 0 hr 04 min
