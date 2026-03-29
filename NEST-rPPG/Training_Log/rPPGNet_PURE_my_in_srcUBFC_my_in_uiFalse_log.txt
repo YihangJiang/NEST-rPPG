@@ -1,0 +1,41 @@
+
+----------------------------------------------- [START 2026-03-26 12:31:07] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     PURE_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['UBFC_my_in']
+    [0] UBFC_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Batch size:        100
+  Max iterations:    100
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    6690  (target: 10786)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_in_srcUBFC_my_in_uiFalse_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.3359184 |UBFC_my_in : 0.98983395 |CM : -0.010440728 |DM : 0.3460845 |TA : 0.07241672 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:100 | loss:  0.71750027 |UBFC_my_in : 0.62403655 |CM : -0.011783586 |DM : 0.0934637 |TA : 0.10889238 |AlignPos : 0.0 | 0 hr 00 min
+
+----------------------------------------------- [START 2026-03-26 12:36:32] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     PURE_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['UBFC_my_in']
+    [0] UBFC_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Batch size:        100
+  Max iterations:    100
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    6690  (target: 10786)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_in_srcUBFC_my_in_uiFalse_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.3359184 |UBFC_my_in : 0.98983395 |CM : -0.010440728 |DM : 0.3460845 |TA : 0.07241672 |AlignPos : 0.0 | 0 hr 00 min

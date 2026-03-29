@@ -99,12 +99,19 @@ def get_index_dir(domain: str) -> str:
     return os.path.join(STMAP_INDEX_BASE, domain)
 
 
-def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=None, override=None):
-    """Build rPPGNet run name. Uses config defaults for None args. spatial/temporal are ignored (no longer in name)."""
+def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=None, ui=None, override=None):
+    """
+    Build rPPGNet run name.
+
+    - If `ui` is provided (True/False): use the region-run style suffix `_uiTrue` / `_uiFalse`.
+    - Otherwise: use the classic suffix `_loss<LOSS_TYPE>` (backward-compatible with train.py outputs).
+    """
     if override:
         return override
     tgt = tgt or TGT_DOMAIN
     src = src or SRC_DOMAIN
+    if ui is not None:
+        return f"rPPGNet_{tgt}_src{src}_ui{bool(ui)}"
     loss_type = loss_type or LOSS_TYPE
     return f"rPPGNet_{tgt}_src{src}_loss{loss_type}"
 

@@ -10,6 +10,8 @@ NEST-rPPG/Result/
 NEST-rPPG/Result_log/
 NEST-rPPG/Result_Model/
 NEST-rPPG/model/
+# Debug dumps for NaN/Inf hunting (generated during training)
+NEST-rPPG/debug_nan_loss/
 
 # Generated wave files for BVP evaluation
 NEST-rPPG/Wave_sort/

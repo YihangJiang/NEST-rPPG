@@ -35,7 +35,7 @@ import config
 # %%
 # ============ Cell 1: Config (constants) ============
 # True = use constants below (Jupyter). False = use command-line args (python train_my.py ...).
-_USE_JUPYTER_CONFIG = False 
+_USE_JUPYTER_CONFIG = False
 
 if _USE_JUPYTER_CONFIG:
     args = SimpleNamespace(
@@ -53,7 +53,7 @@ if _USE_JUPYTER_CONFIG:
         frames_num=512,
         tgt=config.TGT_DOMAIN,
         # Baseline: single source ROI domain (default: config.TARGET_DOMAIN[config.TGT_DOMAIN][1], i.e., *_in)
-        source_domain=None,
+        src=config.SRC_DOMAIN,
         stmap_name=config.STMAP_NAME,
         index_root=config.STMAP_INDEX_BASE,  # index root (subfolders are domain names)
         # Save per-subject feature representations (av) during training
@@ -67,8 +67,7 @@ if _USE_JUPYTER_CONFIG:
         grad_clip=5.0,
     )
 else:
-    base_args = get_args()
-    args = base_args
+    args = get_args()
     if not hasattr(args, 'frames_num'):
         args.frames_num = 512
     if not hasattr(args, 'tgt'):
@@ -87,8 +86,6 @@ else:
         args.save_features = False
     if not hasattr(args, 'tau_info'):
         args.tau_info = 0.07
-    if not hasattr(args, 'use_infonce'):
-        args.use_infonce = False
     if not hasattr(args, 'seed'):
         args.seed = 0
     if not hasattr(args, 'grad_clip'):
@@ -102,6 +99,7 @@ else:
 # %%
 # ============ Cell 2: Dataset & index ============
 print("=" * 60)
+print(args.use_infonce)
 
 # Reproducibility: set all RNG seeds before any randomness (datasets, model, dataloader shuffle)
 def _set_seed(seed):
@@ -128,17 +126,25 @@ tgt_domain = args.tgt
 if tgt_domain not in config.FILEA_NAME:
     raise ValueError(f"Target domain has no FILEA_NAME entry: {tgt_domain}")
 
-# Base source (first words): must come from --src in utils/core.py.
-base_src = args.src
-suffix = tgt_domain.rsplit("_", 1)[-1]  # e.g. BUAA_my_in -> in
+# Base source (prefix): must come from --src in utils/core.py.
+# You may pass --src as either a base like "PURE_my" or a full region-domain like "PURE_my_in".
+# If a suffix is included (last underscore token), we strip it so we can derive:
+#   pos  = <base>_rm
+#   neg  = <base>_eye
+#   src  = <base>_<tgt_suffix>
+if args.src is None:
+    raise ValueError("Please provide --src <base_source_domain> (e.g. --src PURE_my or --src PURE_my_in)")
+if "_" not in args.src:
+    raise ValueError(f"--src must contain at least one '_' suffix token, got {args.src!r}")
+base_src = args.src.rsplit("_", 1)[0]
 
 # Region suffixes (requested behavior):
 # - pos domain uses rm
 # - neg domain uses eye
-# - source domain uses same suffix as tgt
+# - source domain uses args.src directly
 pos_domain = f"{base_src}_rm"
 neg_domain = f"{base_src}_eye"
-source_domain = f"{base_src}_{suffix}"
+source_domain = args.src
 
 region_domains = [pos_domain, source_domain, neg_domain]
 for d in region_domains:
@@ -169,10 +175,9 @@ GPU = args.GPU
 print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
 print("  base_src      :", base_src)
 print("  tgt_domain    :", tgt_domain)
-print("  suffix        :", suffix)
+print("  source_domain :", source_domain)
 print("  use_infonce   :", args.use_infonce)
 print("  pos_domain    :", pos_domain)
-print("  source_domain :", source_domain)
 print("  neg_domain    :", neg_domain)
 print("Test STMap root:", target_root)
 print("Index root:", index_root)
@@ -311,7 +316,7 @@ rPPGNet_name = config.build_run_name(
     src=source_domain,
     spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
     temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
-    loss_type=getattr(args, 'loss_type', config.LOSS_TYPE),
+    ui=getattr(args, 'use_infonce', False)
 )
 
 log = Logger()
@@ -324,22 +329,22 @@ log.write("\n----------------------------------------------- [START %s] %s\n\n" 
 Source_domain_Names = [source_domain]
 total_src_samples = len(source_db)
 
-print("TRAINING CONFIG (regions baseline)")
-print("  Target domain:    ", Target_name)
-print("  Target index:     ", target_index_dir)
-print("  Target STMap:     ", args.stmap_name)
-print("  Source domains:   ", Source_domain_Names)
+log.write("TRAINING CONFIG (regions baseline)\n")
+log.write("  Target domain:     %s\n" % Target_name)
+log.write("  Target index:      %s\n" % target_index_dir)
+log.write("  Target STMap:      %s\n" % args.stmap_name)
+log.write("  Source domains:    %s\n" % Source_domain_Names)
 for i, d in enumerate(Source_domain_Names):
-    print("    [%d] %s -> %s" % (i, d, source_index_dir))
-print("  Batch size:       ", batch_size)
-print("  Max iterations:   ", args.max_iter)
-print("  Frames per clip:  ", frames_num)
-print("  Loss type:        ", getattr(args, 'loss_type', config.LOSS_TYPE))
-print("  Device:           ", device)
-print("  Model:            ", BaseNet.__class__.__name__)
-print("  Source samples:   ", total_src_samples, " (target: %d)" % len(target_db))
-print("  Log file:         ", log_path)
-print("=" * 60 + "\n")
+    log.write("    [%d] %s -> %s\n" % (i, d, source_index_dir))
+log.write("  Batch size:        %s\n" % batch_size)
+log.write("  Max iterations:    %s\n" % args.max_iter)
+log.write("  Frames per clip:   %s\n" % frames_num)
+log.write("  Loss type:         %s\n" % getattr(args, 'loss_type', config.LOSS_TYPE))
+log.write("  Device:            %s\n" % device)
+log.write("  Model:             %s\n" % BaseNet.__class__.__name__)
+log.write("  Source samples:    %s  (target: %d)\n" % (total_src_samples, len(target_db)))
+log.write("  Log file:          %s\n" % log_path)
+log.write("=" * 60 + "\n\n")
 
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
@@ -560,5 +565,15 @@ print('Saved model:', os.path.abspath(model_path))
 
 wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
+
+# Write last Wave_sort path so eval_from_bvp can follow the latest train_regions run.
+try:
+    last_path_file = os.path.join(config.RESULT_LOG_DIR, "last_wave_sort_path.txt")
+    os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
+    with open(last_path_file, "w") as f:
+        f.write(os.path.abspath(wave_sort_out) + "\n")
+    print("Saved last Wave_sort path to:", last_path_file)
+except Exception as e:
+    print("Warning: failed to write last_wave_sort_path.txt:", repr(e))
 
 # %%

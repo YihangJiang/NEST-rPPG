@@ -82,7 +82,7 @@ def get_args():
                         help='Load model')
     parser.add_argument('-rD', '--reData', dest='reData', type=int, default=1,
                         help='re Data')
-    parser.add_argument('-mi', '--max_iter', dest='max_iter', type=int, default=20000,
+    parser.add_argument('-mi', '--max_iter', dest='max_iter', type=int, default=1000,
                         help='re Data')
     parser.add_argument('-s', '--seed', dest='seed', type=int, default=0,
                         help='seed')
@@ -120,8 +120,10 @@ def get_args():
                         help='the num of frames')
     parser.add_argument('-t', '--tgt', dest='tgt', type=str, default='VIPL',
                         help='the name of target domain: VIPL, COH, V4V, UBFC, PURE...')
-    parser.add_argument('--use_infonce', action='store_true',
+    parser.add_argument('-ui', '--use_infonce', action='store_true',
                         help='Enable InfoNCE contrastive alignment with pos/neg domains')
+    parser.add_argument('--weight_info', dest='weight_info', type=float, default=0.01,
+                        help='Weight for InfoNCE alignment loss')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
     return parser.parse_args()

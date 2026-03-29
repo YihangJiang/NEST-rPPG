@@ -1,0 +1,120 @@
+
+----------------------------------------------- [START 2026-03-26 15:30:25] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['BUAA_my_in']
+    [0] BUAA_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_in
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    11060  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_in_uiTrue_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.4101491 |BUAA_my_in : 0.9981821 |CM : -0.010757351 |DM : 0.41196695 |TA : 0.06669861 |AlignPos : 5.350414 | 0 hr 00 min
+Train Inter:100 | loss:  1.018094 |BUAA_my_in : 0.9927559 |CM : -0.012033818 |DM : 0.025338097 |TA : 0.12118989 |AlignPos : 5.407844 | 0 hr 00 min
+Train Inter:200 | loss:  1.0515664 |BUAA_my_in : 1.006489 |CM : -0.0122162 |DM : 0.045077357 |TA : 0.13536197 |AlignPos : 5.487654 | 0 hr 00 min
+Train Inter:300 | loss:  1.0176741 |BUAA_my_in : 0.99851584 |CM : -0.01246453 |DM : 0.019158252 |TA : 0.1297921 |AlignPos : 5.740853 | 0 hr 00 min
+Train Inter:400 | loss:  1.0064363 |BUAA_my_in : 0.9779178 |CM : -0.01238101 |DM : 0.028518613 |TA : 0.14698887 |AlignPos : 5.466921 | 0 hr 01 min
+Train Inter:500 | loss:  1.0080284 |BUAA_my_in : 0.98614264 |CM : -0.013042289 |DM : 0.021885777 |TA : 0.13264698 |AlignPos : 5.1793075 | 0 hr 01 min
+Train Inter:600 | loss:  0.96878624 |BUAA_my_in : 0.9508507 |CM : -0.0122225825 |DM : 0.017935514 |TA : 0.14502245 |AlignPos : 6.1852503 | 0 hr 01 min
+Train Inter:700 | loss:  0.6658717 |BUAA_my_in : 0.63853997 |CM : -0.012325575 |DM : 0.027331697 |TA : 0.1370002 |AlignPos : 5.173056 | 0 hr 02 min
+Train Inter:800 | loss:  0.40671477 |BUAA_my_in : 0.3654073 |CM : -0.011650702 |DM : 0.041307468 |TA : 0.1348015 |AlignPos : 5.503293 | 0 hr 02 min
+Train Inter:900 | loss:  0.22389413 |BUAA_my_in : 0.19661903 |CM : -0.010534897 |DM : 0.027275097 |TA : 0.1260823 |AlignPos : 5.7755938 | 0 hr 02 min
+Train Inter:1000 | loss:  0.14331838 |BUAA_my_in : 0.12473643 |CM : -0.011009267 |DM : 0.018581964 |TA : 0.14294446 |AlignPos : 5.405174 | 0 hr 02 min
+
+----------------------------------------------- [START 2026-03-26 15:33:46] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['BUAA_my_in']
+    [0] BUAA_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_in
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    11060  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_in_uiTrue_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.4636532 |BUAA_my_in : 0.9981821 |CM : -0.010757351 |DM : 0.41196695 |TA : 0.06669861 |AlignPos : 5.350414 | 0 hr 00 min
+Train Inter:100 | loss:  1.0744506 |BUAA_my_in : 0.99703383 |CM : -0.012068929 |DM : 0.027388887 |TA : 0.11958939 |AlignPos : 5.0027847 | 0 hr 00 min
+Train Inter:200 | loss:  0.849893 |BUAA_my_in : 0.7648532 |CM : -0.012023575 |DM : 0.03394608 |TA : 0.12394112 |AlignPos : 5.1093674 | 0 hr 00 min
+Train Inter:300 | loss:  0.43085775 |BUAA_my_in : 0.35872972 |CM : -0.011359759 |DM : 0.017604323 |TA : 0.11852008 |AlignPos : 5.452371 | 0 hr 00 min
+Train Inter:400 | loss:  0.26843318 |BUAA_my_in : 0.19228655 |CM : -0.010695455 |DM : 0.024189066 |TA : 0.13440204 |AlignPos : 5.1957574 | 0 hr 01 min
+Train Inter:500 | loss:  0.22155184 |BUAA_my_in : 0.13676667 |CM : -0.011063997 |DM : 0.025658559 |TA : 0.123140454 |AlignPos : 5.912661 | 0 hr 01 min
+Train Inter:600 | loss:  0.16452429 |BUAA_my_in : 0.08368516 |CM : -0.010954513 |DM : 0.024387725 |TA : 0.13953567 |AlignPos : 5.645141 | 0 hr 01 min
+Train Inter:700 | loss:  0.15805718 |BUAA_my_in : 0.085229695 |CM : -0.01081503 |DM : 0.019517992 |TA : 0.1373961 |AlignPos : 5.3309507 | 0 hr 02 min
+Train Inter:800 | loss:  0.1585996 |BUAA_my_in : 0.072556496 |CM : -0.011401785 |DM : 0.028590309 |TA : 0.13228291 |AlignPos : 5.7452803 | 0 hr 02 min
+Train Inter:900 | loss:  0.13223645 |BUAA_my_in : 0.060772955 |CM : -0.010881709 |DM : 0.017575132 |TA : 0.12879115 |AlignPos : 5.388836 | 0 hr 02 min
+Train Inter:1000 | loss:  0.13121726 |BUAA_my_in : 0.056120038 |CM : -0.010894448 |DM : 0.019761983 |TA : 0.13858736 |AlignPos : 5.5335236 | 0 hr 02 min
+
+----------------------------------------------- [START 2026-03-26 15:56:44] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['BUAA_my_in']
+    [0] BUAA_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_in
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    11060  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_in_uiTrue_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.4101491 |BUAA_my_in : 0.9981821 |CM : -0.010757351 |DM : 0.41196695 |TA : 0.06669861 |AlignPos : 5.350414 | 0 hr 00 min
+Train Inter:100 | loss:  1.018094 |BUAA_my_in : 0.9927559 |CM : -0.012033818 |DM : 0.025338097 |TA : 0.12118989 |AlignPos : 5.407844 | 0 hr 00 min
+Train Inter:200 | loss:  1.0515664 |BUAA_my_in : 1.006489 |CM : -0.0122162 |DM : 0.045077357 |TA : 0.13536197 |AlignPos : 5.487654 | 0 hr 00 min
+Train Inter:300 | loss:  1.0176741 |BUAA_my_in : 0.99851584 |CM : -0.01246453 |DM : 0.019158252 |TA : 0.1297921 |AlignPos : 5.740853 | 0 hr 00 min
+Train Inter:400 | loss:  1.0064363 |BUAA_my_in : 0.9779178 |CM : -0.01238101 |DM : 0.028518613 |TA : 0.14698887 |AlignPos : 5.466921 | 0 hr 01 min
+Train Inter:500 | loss:  1.0080284 |BUAA_my_in : 0.98614264 |CM : -0.013042289 |DM : 0.021885777 |TA : 0.13264698 |AlignPos : 5.1793075 | 0 hr 01 min
+Train Inter:600 | loss:  0.96878624 |BUAA_my_in : 0.9508507 |CM : -0.0122225825 |DM : 0.017935514 |TA : 0.14502245 |AlignPos : 6.1852503 | 0 hr 01 min
+Train Inter:700 | loss:  0.6658717 |BUAA_my_in : 0.63853997 |CM : -0.012325575 |DM : 0.027331697 |TA : 0.1370002 |AlignPos : 5.173056 | 0 hr 02 min
+Train Inter:800 | loss:  0.40671477 |BUAA_my_in : 0.3654073 |CM : -0.011650702 |DM : 0.041307468 |TA : 0.1348015 |AlignPos : 5.503293 | 0 hr 02 min
+Train Inter:900 | loss:  0.22389413 |BUAA_my_in : 0.19661903 |CM : -0.010534897 |DM : 0.027275097 |TA : 0.1260823 |AlignPos : 5.7755938 | 0 hr 02 min
+Train Inter:1000 | loss:  0.14331838 |BUAA_my_in : 0.12473643 |CM : -0.011009267 |DM : 0.018581964 |TA : 0.14294446 |AlignPos : 5.405174 | 0 hr 02 min
+
+----------------------------------------------- [START 2026-03-26 16:00:06] ---------------------------------------------------
+
+TRAINING CONFIG (regions baseline)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['BUAA_my_in']
+    [0] BUAA_my_in -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_in
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    11060  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_in_uiTrue_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.4636532 |BUAA_my_in : 0.9981821 |CM : -0.010757351 |DM : 0.41196695 |TA : 0.06669861 |AlignPos : 5.350414 | 0 hr 00 min
+Train Inter:100 | loss:  1.0744506 |BUAA_my_in : 0.99703383 |CM : -0.012068929 |DM : 0.027388887 |TA : 0.11958939 |AlignPos : 5.0027847 | 0 hr 00 min
+Train Inter:200 | loss:  0.849893 |BUAA_my_in : 0.7648532 |CM : -0.012023575 |DM : 0.03394608 |TA : 0.12394112 |AlignPos : 5.1093674 | 0 hr 00 min
+Train Inter:300 | loss:  0.43085775 |BUAA_my_in : 0.35872972 |CM : -0.011359759 |DM : 0.017604323 |TA : 0.11852008 |AlignPos : 5.452371 | 0 hr 00 min
+Train Inter:400 | loss:  0.26843318 |BUAA_my_in : 0.19228655 |CM : -0.010695455 |DM : 0.024189066 |TA : 0.13440204 |AlignPos : 5.1957574 | 0 hr 01 min
+Train Inter:500 | loss:  0.22155184 |BUAA_my_in : 0.13676667 |CM : -0.011063997 |DM : 0.025658559 |TA : 0.123140454 |AlignPos : 5.912661 | 0 hr 01 min
+Train Inter:600 | loss:  0.16452429 |BUAA_my_in : 0.08368516 |CM : -0.010954513 |DM : 0.024387725 |TA : 0.13953567 |AlignPos : 5.645141 | 0 hr 01 min
+Train Inter:700 | loss:  0.15805718 |BUAA_my_in : 0.085229695 |CM : -0.01081503 |DM : 0.019517992 |TA : 0.1373961 |AlignPos : 5.3309507 | 0 hr 02 min
+Train Inter:800 | loss:  0.1585996 |BUAA_my_in : 0.072556496 |CM : -0.011401785 |DM : 0.028590309 |TA : 0.13228291 |AlignPos : 5.7452803 | 0 hr 02 min
+Train Inter:900 | loss:  0.13223645 |BUAA_my_in : 0.060772955 |CM : -0.010881709 |DM : 0.017575132 |TA : 0.12879115 |AlignPos : 5.388836 | 0 hr 02 min
+Train Inter:1000 | loss:  0.13121726 |BUAA_my_in : 0.056120038 |CM : -0.010894448 |DM : 0.019761983 |TA : 0.13858736 |AlignPos : 5.5335236 | 0 hr 02 min

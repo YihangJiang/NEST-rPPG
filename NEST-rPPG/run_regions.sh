@@ -14,16 +14,28 @@ fi
 # Ensure `conda activate` works in non-interactive shells.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-echo "[INFO] Activating conda env: rppg"
 conda activate rppg
+python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' -ui --weight_info 0
 
-echo "[INFO] Running train_regions.py"
-python train_regions.py --src 'UBFC_my_rm' -t 'BUAA_my_in'
-
-echo "[INFO] Activating conda env: mprppg"
 conda activate mprppg
-
-echo "[INFO] Running eval_from_bvp.py"
 python eval_from_bvp.py
 
-echo "[INFO] Done."
+conda activate rppg
+python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' -ui --weight_info 0.01
+
+conda activate mprppg
+python eval_from_bvp.py
+
+conda activate rppg
+python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in'
+
+conda activate mprppg
+python eval_from_bvp.py
+
+conda activate rppg
+python train_regions.py --src 'PURE_my_rm' -t 'BUAA_my_rm'
+
+conda activate mprppg
+python eval_from_bvp.py
+
+

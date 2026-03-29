@@ -23,6 +23,16 @@ from utils.eval_utils import (
 )
 
 save_path = config.EVAL_SAVE_PATH
+# If train_regions.py was run recently, follow its Wave_sort output path automatically.
+try:
+    last_path_file = os.path.join(config.RESULT_LOG_DIR, "last_wave_sort_path.txt")
+    if os.path.isfile(last_path_file):
+        with open(last_path_file, "r") as f:
+            candidate = f.read().strip()
+        if candidate and os.path.isdir(candidate):
+            save_path = candidate
+except Exception:
+    pass
 print(f"Evaluating Wave_sort path: {save_path}")
 
 
@@ -107,13 +117,11 @@ for name, metrics in result.items():
     )
 
 # %%
-# Optional: visualize one BUAA subject / segment. Wave_sort ids match the filename prefix before
-# "gt_Wave.mat" (e.g. "Sub_06lux 10.0", lowercase "lux"). Set config.EVAL_SAVE_PATH to that run.
-_pairs = visualize_mat_waves(
-    save_path,
-    subject_ids=["Sub_06lux 10.0"],
-    segment_indices=[145],
-    vis_run_name="check",
-)
-
+# Optional debug example (disabled by default):
+# _pairs = visualize_mat_waves(
+#     save_path,
+#     subject_ids=["Sub_06lux 10.0"],
+#     segment_indices=[145],
+#     vis_run_name="check",
+# )
 # %%
