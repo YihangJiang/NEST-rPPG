@@ -1,9 +1,9 @@
 
------------------------------------------------ [START 2026-03-26 16:03:29] ---------------------------------------------------
+----------------------------------------------- [START 2026-03-29 18:52:57] ---------------------------------------------------
 
 TRAINING CONFIG (regions baseline)
-  Target domain:     UBFC_my_in
-  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target domain:     PURE_my_rm
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my_rm
   Target STMap:      STMap_RGB.png
   Source domains:    ['BUAA_my_rm']
     [0] BUAA_my_rm -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_rm
@@ -13,8 +13,8 @@ TRAINING CONFIG (regions baseline)
   Loss type:         DM
   Device:            cuda:0
   Model:             BaseNet
-  Source samples:    11082  (target: 6690)
-  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_rm_uiFalse_log.txt
+  Source samples:    11082  (target: 10786)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_rm_srcBUAA_my_rm_uiFalse_log.txt
 ============================================================
 
 Train Inter:0 | loss:  1.4242647 |BUAA_my_rm : 1.0067139 |CM : -0.010195486 |DM : 0.4175508 |TA : 0.06406635 |AlignPos : 0.0 | 0 hr 00 min
@@ -29,11 +29,11 @@ Train Inter:800 | loss:  0.8474799 |BUAA_my_rm : 0.81220007 |CM : -0.0132460445 
 Train Inter:900 | loss:  0.60306394 |BUAA_my_rm : 0.5935273 |CM : -0.013309061 |DM : 0.009536624 |TA : 0.13978434 |AlignPos : 0.0 | 0 hr 02 min
 Train Inter:1000 | loss:  0.4505532 |BUAA_my_rm : 0.42686343 |CM : -0.011964086 |DM : 0.023689775 |TA : 0.14091277 |AlignPos : 0.0 | 0 hr 02 min
 
------------------------------------------------ [START 2026-03-29 22:23:36] ---------------------------------------------------
+----------------------------------------------- [START 2026-03-29 20:22:00] ---------------------------------------------------
 
 TRAINING CONFIG (regions baseline)
-  Target domain:     UBFC_my_in
-  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target domain:     PURE_my_rm
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my_rm
   Target STMap:      STMap_RGB.png
   Source domains:    ['BUAA_my_rm']
     [0] BUAA_my_rm -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_rm
@@ -43,31 +43,8 @@ TRAINING CONFIG (regions baseline)
   Loss type:         DM
   Device:            cuda:0
   Model:             BaseNet
-  Source samples:    11082  (target: 6690)
-  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_rm_uiFalse_log.txt
-============================================================
-
-Train Inter:0 | loss:  1.4242647 |BUAA_my_rm : 1.0067139 |CM : -0.010195486 |DM : 0.4175508 |TA : 0.06406635 |AlignPos : 0.0 | 0 hr 00 min
-Train Inter:100 | loss:  1.0306538 |BUAA_my_rm : 1.0002193 |CM : -0.01186152 |DM : 0.03043451 |TA : 0.11781663 |AlignPos : 0.0 | 0 hr 00 min
-Train Inter:200 | loss:  1.00754 |BUAA_my_rm : 0.9944413 |CM : -0.012562926 |DM : 0.013098683 |TA : 0.12947875 |AlignPos : 0.0 | 0 hr 00 min
-Train Inter:300 | loss:  1.0110683 |BUAA_my_rm : 0.99999344 |CM : -0.012942739 |DM : 0.011074922 |TA : 0.13410586 |AlignPos : 0.0 | 0 hr 00 min
-
------------------------------------------------ [START 2026-03-30 13:03:33] ---------------------------------------------------
-
-TRAINING CONFIG (regions baseline)
-  Target domain:     UBFC_my_in
-  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
-  Target STMap:      STMap_RGB.png
-  Source domains:    ['BUAA_my_rm']
-    [0] BUAA_my_rm -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_rm
-  Batch size:        100
-  Max iterations:    1000
-  Frames per clip:   256
-  Loss type:         DM
-  Device:            cuda:0
-  Model:             BaseNet
-  Source samples:    11082  (target: 6690)
-  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_rm_uiFalse_log.txt
+  Source samples:    11082  (target: 10786)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_rm_srcBUAA_my_rm_uiFalse_log.txt
 ============================================================
 
 Train Inter:0 | loss:  1.4242647 |BUAA_my_rm : 1.0067139 |CM : -0.010195486 |DM : 0.4175508 |TA : 0.06406635 |AlignPos : 0.0 | 0 hr 00 min
@@ -82,11 +59,11 @@ Train Inter:800 | loss:  0.8474799 |BUAA_my_rm : 0.81220007 |CM : -0.0132460445 
 Train Inter:900 | loss:  0.60306394 |BUAA_my_rm : 0.5935273 |CM : -0.013309061 |DM : 0.009536624 |TA : 0.13978434 |AlignPos : 0.0 | 0 hr 02 min
 Train Inter:1000 | loss:  0.4505532 |BUAA_my_rm : 0.42686343 |CM : -0.011964086 |DM : 0.023689775 |TA : 0.14091277 |AlignPos : 0.0 | 0 hr 02 min
 
------------------------------------------------ [START 2026-03-30 14:13:56] ---------------------------------------------------
+----------------------------------------------- [START 2026-03-30 13:33:01] ---------------------------------------------------
 
 TRAINING CONFIG (regions baseline)
-  Target domain:     UBFC_my_in
-  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Target domain:     PURE_my_rm
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my_rm
   Target STMap:      STMap_RGB.png
   Source domains:    ['BUAA_my_rm']
     [0] BUAA_my_rm -> /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my_rm
@@ -96,8 +73,8 @@ TRAINING CONFIG (regions baseline)
   Loss type:         DM
   Device:            cuda:0
   Model:             BaseNet
-  Source samples:    11082  (target: 6690)
-  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_rm_uiFalse_log.txt
+  Source samples:    11082  (target: 10786)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_rm_srcBUAA_my_rm_uiFalse_log.txt
 ============================================================
 
 Train Inter:0 | loss:  1.4242647 |BUAA_my_rm : 1.0067139 |CM : -0.010195486 |DM : 0.4175508 |TA : 0.06406635 |AlignPos : 0.0 | 0 hr 00 min

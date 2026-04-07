@@ -410,27 +410,18 @@ for iter_num in range(max_iter + 1):
     bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
 
     if use_infonce:
-        # InfoNCE-style alignment: per sample i, softmax over paired pos vs paired neg only (q·k_pos[i], q·k_neg[i]).
+        # InfoNCE-style alignment: pull src av toward paired pos av; repel neg keys only (not other k_pos[j]).
         m = av.shape[0]
         tau = float(getattr(args, 'tau_info', 0.07))
         q = F.normalize(av, dim=1)
         k_pos = F.normalize(av_pos[:m], dim=1)
         k_neg = F.normalize(av_neg[:m], dim=1)
-        # Paired pos vs paired neg only (same index i): softmax over [q·k_pos[i], q·k_neg[i]].
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = (q * k_neg).sum(dim=1, keepdim=True) / tau  # (m, 1) — only k_neg[i] for row i
+        # penalize 
+        pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
         neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
-        pos_scores = torch.mm(q, k_pos.t()) / tau  # (m, m)
- 
-        logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2)
+        logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, m+1)
         labels = torch.zeros(m, dtype=torch.long, device=logits.device)
         align_pos_loss = F.cross_entropy(logits, labels)
-        # Original: all k_neg[j] as negatives for each row i (full (m, m+1) logits).
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
-        # logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, m+1)
-        # labels = torch.zeros(m, dtype=torch.long, device=logits.device)
-        # align_pos_loss = F.cross_entropy(logits, labels)
         # Previous variant (batch keys): softmax over all k_pos and k_neg — also penalizes high q·k_pos[j], j!=i.
         # keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
         # logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
