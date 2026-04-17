@@ -16,16 +16,16 @@ REPO_ROOT = os.path.dirname(BASE_DIR)
 # Comment out the block you are NOT using.
 
 # --- Option A: Use original STMap (PURE, UBFC, BUAA, VIPL, V4V) at REPO_ROOT/STMap/... ---
-# STMAP_PARENT_ROOT = REPO_ROOT
-# STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap')
-# STMAP_DATA_ROOT_REL = '../'
-# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
+STMAP_PARENT_ROOT = REPO_ROOT
+STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap')
+STMAP_DATA_ROOT_REL = '../'
+STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
 
 # --- Option B: Use STMap_my (PURE_my, UBFC_my, BUAA_my, regions) at REPO_ROOT/STMap_my/... ---
-STMAP_PARENT_ROOT = REPO_ROOT
-STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
-STMAP_DATA_ROOT_REL = '../'
-STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
+# STMAP_PARENT_ROOT = REPO_ROOT
+# STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
+# STMAP_DATA_ROOT_REL = '../'
+# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
 
 # ===== END SWITCH BLOCK =====
 
@@ -37,8 +37,8 @@ MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'BUAA_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'PURE_my_rm'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC'            # switched to original STMap domain for toy data test
+SRC_DOMAIN = 'PURE'            # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
