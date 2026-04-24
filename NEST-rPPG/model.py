@@ -312,7 +312,7 @@ class TemporalAttention(nn.Module):
 
 
 # =============================================================================
-# ArcNet  (aliased as arc_net for compatibility with train_regions.py)
+# ArcNet  (aliased as arc_net for compatibility with train_regions_arc.py)
 # =============================================================================
 
 class ArcNet(nn.Module):
@@ -352,7 +352,6 @@ class ArcNet(nn.Module):
         self.layer4 = resnet.layer4              # out: (B, 512, H/16, T/16)
 
         # ── Temporal attention (between layer3 and layer4) ───────────────────
-        # channel count matches layer3 output = 256
         self.temporal_attn = TemporalAttention(
             channels=256, num_heads=attn_heads, dropout=attn_dropout
         )
@@ -380,68 +379,46 @@ class ArcNet(nn.Module):
         )
 
         # ── Skip-connection merge convolutions ────────────────────────────────
-        # After up1: decoder=256ch, skip(layer3)=256ch -> concat 512
         self.merge1 = nn.Sequential(
             nn.Conv2d(256 + 256, 256, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
         )
-        # After up2: decoder=64ch, skip(layer2)=128ch -> concat 192
         self.merge2 = nn.Sequential(
             nn.Conv2d(64 + 128, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
         )
-        # After up3: decoder=32ch, skip(layer1)=64ch -> concat 96
         self.merge3 = nn.Sequential(
             nn.Conv2d(32 + 64, 32, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
         )
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
-
     @staticmethod
     def get_av(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
-        """Stable per-sample min-max normalized channel descriptor."""
-        av = x.mean(dim=(-1, -2))                              # (B, C)
+        av = x.mean(dim=(-1, -2))
         min_val, _ = torch.min(av, dim=1, keepdim=True)
         max_val, _ = torch.max(av, dim=1, keepdim=True)
         denom = (max_val - min_val).clamp_min(eps)
         av = (av - min_val) / denom
         return torch.nan_to_num(av, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # ── Forward ───────────────────────────────────────────────────────────────
-
     def forward(self, x: torch.Tensor):
-        """
-        Args:
-            x : ST map tensor  (B, 3, H, T)
-
-        Returns:
-            Sig : BVP waveform   (B, H', T')  — same shape contract as BaseNet
-            HR  : heart rate     (B, 1)
-            av  : feature vector (B, 960)     — cat[av1,av2,av3,av4], same as BaseNet
-        """
-        # ── Encoder ──────────────────────────────────────────────────────────
         x = self.stem(x)
 
-        x  = self.layer1(x);  av1 = self.get_av(x);  e1 = x   # saved for skip
-        x  = self.layer2(x);  av2 = self.get_av(x);  e2 = x   # saved for skip
+        x  = self.layer1(x);  av1 = self.get_av(x);  e1 = x
+        x  = self.layer2(x);  av2 = self.get_av(x);  e2 = x
         x  = self.layer3(x);  av3 = self.get_av(x)
 
-        # Temporal attention refines layer3 features before bottleneck
-        x  = self.temporal_attn(x);  e3 = x                   # saved for skip
+        x  = self.temporal_attn(x);  e3 = x
 
         em = self.layer4(x);  av4 = self.get_av(em)
 
-        # Feature vector for contrastive loss (same shape as BaseNet: B x 960)
         av = torch.cat([av1, av2, av3, av4], dim=1)
 
-        # ── HR head ──────────────────────────────────────────────────────────
-        HR = self.fc(self.avgpool(em).view(em.size(0), -1))    # (B, 1)
+        HR = self.fc(self.avgpool(em).view(em.size(0), -1))
 
-        # ── BVP decoder with U-Net skip fusions ──────────────────────────────
         x = self.up1(em)
         x = _fuse_skip(x, e3, self.merge1)
         x = self.up2(x)
@@ -454,5 +431,178 @@ class ArcNet(nn.Module):
         return Sig, HR, av
 
 
-# Alias: train_regions.py can import arc_net directly
+# Alias: train_regions_arc.py can import arc_net directly
 arc_net = ArcNet
+
+
+# =============================================================================
+# PatchEmbedStem — patch tokenizer for TransformerNet
+# =============================================================================
+
+class PatchEmbedStem(nn.Module):
+    """
+    Splits the ST map (B, 3, H, T) into non-overlapping patches and projects
+    each patch to a d_model-dimensional token.
+
+    patch_size = (ph, pw): spatial x temporal patch dimensions.
+    Output: (B, N, d_model) where N = (H/ph) * (T/pw)
+
+    For ST maps of shape (9, 512):
+      patch_size=(3, 16) -> grid (3, 32) -> 96 tokens
+    """
+
+    def __init__(self, in_channels: int = 3, patch_size: tuple = (3, 16), d_model: int = 256):
+        super().__init__()
+        self.patch_h, self.patch_w = patch_size
+        self.proj = nn.Conv2d(
+            in_channels, d_model,
+            kernel_size=patch_size, stride=patch_size
+        )
+
+    def forward(self, x: torch.Tensor):
+        x = self.proj(x)                          # (B, d_model, H/ph, T/pw)
+        B, C, H, W = x.shape
+        x = x.flatten(2).transpose(1, 2)          # (B, N, d_model)
+        return x, H, W
+
+
+# =============================================================================
+# TransformerNet — replaces ResNet layer1/2/3 with a Transformer encoder
+# =============================================================================
+
+class TransformerNet(nn.Module):
+    """
+    Replaces the three ResNet feature extraction layers (layer1, layer2, layer3)
+    with a Transformer encoder operating on ST map patches.
+
+    Motivation (from mentor notes):
+      The three ResNet NLP-style layers extract 512-d feature vectors but may not
+      capture long-range temporal pulse patterns as well as transformers. This class
+      tests whether global self-attention over patch tokens improves HR estimation.
+
+    Architecture:
+      1. PatchEmbedStem  — splits ST map into patch tokens (replaces layer1/2/3)
+      2. Transformer encoder — num_layers of multi-head self-attention + FFN
+      3. layer4 from ResNet-18 — kept as the 256->512 bottleneck
+      4. Same HR head and BVP decoder as BaseNet
+
+    Forward API: forward(x) -> (Sig, HR, av) — identical to BaseNet.
+
+    Output shapes (example input (B, 3, 9, 512)):
+      Sig : (B, H', T')   BVP waveform
+      HR  : (B, 1)        heart rate scalar
+      av  : (B, 960)      concat of av1..av4, same as BaseNet
+    """
+
+    def __init__(
+        self,
+        patch_size: tuple = (3, 16),  # (spatial rows, temporal frames) per patch
+        d_model: int = 256,           # transformer hidden dim (matches layer4 input=256)
+        nhead: int = 8,               # attention heads
+        num_layers: int = 4,          # transformer encoder depth
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+        from torchvision.models import ResNet18_Weights
+
+        resnet = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+
+        # ── Patch tokenizer (replaces conv1 + layer1 + layer2 + layer3) ──────
+        self.patch_embed = PatchEmbedStem(
+            in_channels=3, patch_size=patch_size, d_model=d_model
+        )
+
+        # ── Transformer encoder ──────────────────────────────────────────────
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.norm = nn.LayerNorm(d_model)
+
+        # ── Bottleneck: keep ResNet layer4 (256 -> 512) ──────────────────────
+        # layer4 expects input channels = 256, which matches d_model=256
+        self.layer4 = resnet.layer4
+
+        # ── HR head ──────────────────────────────────────────────────────────
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512, 1)
+
+        # ── BVP decoder (same structure as BaseNet) ───────────────────────────
+        self.up1 = nn.Sequential(
+            nn.ConvTranspose2d(512, 512, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(512, 256, [2, 1], downsample=1),
+        )
+        self.up2 = nn.Sequential(
+            nn.ConvTranspose2d(256, 256, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(256, 64, [1, 1], downsample=1),
+        )
+        self.up3 = nn.Sequential(
+            nn.ConvTranspose2d(64, 64, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(64, 32, [2, 1], downsample=1),
+        )
+        self.up4 = nn.Sequential(
+            nn.ConvTranspose2d(32, 32, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(32, 1, [1, 1], downsample=1),
+        )
+
+    @staticmethod
+    def get_av(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+        av = x.mean(dim=(-1, -2))
+        min_val, _ = torch.min(av, dim=1, keepdim=True)
+        max_val, _ = torch.max(av, dim=1, keepdim=True)
+        denom = (max_val - min_val).clamp_min(eps)
+        av = (av - min_val) / denom
+        return torch.nan_to_num(av, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def forward(self, x: torch.Tensor):
+        """
+        Args:
+            x : ST map tensor  (B, 3, H, T)
+
+        Returns:
+            Sig : BVP waveform   (B, H', T')
+            HR  : heart rate     (B, 1)
+            av  : feature vector (B, 960) — same shape as BaseNet
+        """
+        B = x.shape[0]
+
+        # ── Patch embed + transformer (replaces layer1/2/3) ──────────────────
+        tokens, H, W = self.patch_embed(x)    # (B, N, d_model)
+        tokens = self.transformer(tokens)      # (B, N, d_model)
+        tokens = self.norm(tokens)             # (B, N, d_model)
+
+        # Reshape tokens back to spatial feature map for layer4
+        feat = tokens.transpose(1, 2).reshape(B, -1, H, W)   # (B, 256, H, W)
+
+        # Compute av1/av2/av3 from transformer features to match BaseNet's
+        # (B, 960) av shape: av1=64ch, av2=128ch, av3=256ch, av4=512ch
+        av1 = self.get_av(feat[:, :64,  :, :])   # (B, 64)
+        av2 = self.get_av(feat[:, :128, :, :])   # (B, 128)
+        av3 = self.get_av(feat)                   # (B, 256)
+
+        # ── Bottleneck ───────────────────────────────────────────────────────
+        em = self.layer4(feat)                    # (B, 512, H/2, W/2)
+        av4 = self.get_av(em)                     # (B, 512)
+
+        # Feature vector — (B, 64+128+256+512) = (B, 960), same as BaseNet
+        av = torch.cat([av1, av2, av3, av4], dim=1)
+
+        # ── HR head ──────────────────────────────────────────────────────────
+        HR = self.fc(self.avgpool(em).view(B, -1))    # (B, 1)
+
+        # ── BVP decoder ──────────────────────────────────────────────────────
+        x = self.up1(em)
+        x = self.up2(x)
+        x = self.up3(x)
+        x = self.up4(x)
+        Sig = x.squeeze(dim=1)
+
+        return Sig, HR, av
+
+
+# Alias: train_regions_transformer.py can import transformer_net directly
+transformer_net = TransformerNet
