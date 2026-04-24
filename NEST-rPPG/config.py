@@ -11,23 +11,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Repo root (one level up from NEST-rPPG)
 REPO_ROOT = os.path.dirname(BASE_DIR)
 
-# ===== SWITCH BLOCK: choose ONE dataset layout =====
-# Both STMap and STMap_my now live under REPO_ROOT, so we only switch the folder name.
-# Comment out the block you are NOT using.
-
-# --- Option A: Use original STMap (PURE, UBFC, BUAA, VIPL, V4V) at REPO_ROOT/STMap/... ---
-STMAP_PARENT_ROOT = REPO_ROOT
-STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap')
-STMAP_DATA_ROOT_REL = '../'
+# Data lives on the NVMe drive
+STMAP_PARENT_ROOT = '/mnt/nvme2/rppg_data'
+STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
+STMAP_DATA_ROOT_REL = STMAP_PARENT_ROOT
 STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
-
-# --- Option B: Use STMap_my (PURE_my, UBFC_my, BUAA_my, regions) at REPO_ROOT/STMap_my/... ---
-# STMAP_PARENT_ROOT = REPO_ROOT
-# STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
-# STMAP_DATA_ROOT_REL = '../'
-# STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
-
-# ===== END SWITCH BLOCK =====
 
 # Output dirs (under NEST-rPPG)
 RESULT_DIR = os.path.join(BASE_DIR, 'Output')

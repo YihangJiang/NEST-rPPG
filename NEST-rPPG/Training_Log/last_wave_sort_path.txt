@@ -1,1 +1,1 @@
-/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/UBFC_my_rm/rPPGNet_UBFC_my_rm_srcBUAA_my_rm_uiFalse
+/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/PURE_my_in/rPPGNet_PURE_my_in_srcUBFC_my_rm_uiFalse

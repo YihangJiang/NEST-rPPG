@@ -564,11 +564,11 @@ class TransformerNet(nn.Module):
             x : ST map tensor  (B, 3, H, T)
 
         Returns:
-            Sig : BVP waveform   (B, H', T')
+            Sig : BVP waveform   (B, 1, T)  — spatial rows mean-pooled, upsampled to input T
             HR  : heart rate     (B, 1)
             av  : feature vector (B, 960) — same shape as BaseNet
         """
-        B = x.shape[0]
+        B, _, _, T_in = x.shape
 
         # ── Patch embed + transformer (replaces layer1/2/3) ──────────────────
         tokens, H, W = self.patch_embed(x)    # (B, N, d_model)
@@ -599,7 +599,10 @@ class TransformerNet(nn.Module):
         x = self.up2(x)
         x = self.up3(x)
         x = self.up4(x)
-        Sig = x.squeeze(dim=1)
+        Sig = x.squeeze(dim=1)                              # (B, H', T')
+        Sig = Sig.mean(dim=1, keepdim=True)                 # (B, 1, T') — collapse spatial rows
+        Sig = F.interpolate(Sig, size=T_in, mode='linear',
+                            align_corners=False)             # (B, 1, T_in)
 
         return Sig, HR, av
 

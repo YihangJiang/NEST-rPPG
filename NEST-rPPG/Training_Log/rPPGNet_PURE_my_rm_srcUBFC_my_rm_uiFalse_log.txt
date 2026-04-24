@@ -139,3 +139,32 @@ Train Inter:700 | loss:  0.14245827 |UBFC_my_rm : 0.118021965 |CM : -0.011731478
 Train Inter:800 | loss:  0.13548319 |UBFC_my_rm : 0.11664355 |CM : -0.011868434 |DM : 0.018839648 |TA : 0.13984364 |AlignPos : 0.0 | 0 hr 02 min
 Train Inter:900 | loss:  0.12961939 |UBFC_my_rm : 0.1107074 |CM : -0.011483147 |DM : 0.018911988 |TA : 0.12655628 |AlignPos : 0.0 | 0 hr 02 min
 Train Inter:1000 | loss:  0.11073959 |UBFC_my_rm : 0.095918894 |CM : -0.011216147 |DM : 0.014820697 |TA : 0.13858926 |AlignPos : 0.0 | 0 hr 02 min
+
+----------------------------------------------- [START 2026-04-24 15:42:10] ---------------------------------------------------
+
+TRAINING CONFIG (regions arc_net)
+  Target domain:     PURE_my_rm
+  Target index:      /home/psa14/projects/NEST-rPPG/NEST-rPPG/STMap/STMap_Index/PURE_my_rm
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['UBFC_my_rm']
+    [0] UBFC_my_rm -> /home/psa14/projects/NEST-rPPG/NEST-rPPG/STMap/STMap_Index/UBFC_my_rm
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             TransformerNet
+  Source samples:    6690  (target: 10786)
+  Log file:          /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_PURE_my_rm_srcUBFC_my_rm_uiFalse_log.txt
+============================================================
+
+Train Inter:0 | loss:  3.3618991 |UBFC_my_rm : 0.99985 |CM : -0.023149582 |DM : 2.362049 |TA : 0.03399688 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:100 | loss:  0.57962024 |UBFC_my_rm : 0.3922702 |CM : -0.023056125 |DM : 0.18735006 |TA : 0.113672495 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:200 | loss:  0.37470403 |UBFC_my_rm : 0.30378896 |CM : -0.020780666 |DM : 0.07091507 |TA : 0.11386055 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:300 | loss:  0.26705012 |UBFC_my_rm : 0.22956866 |CM : -0.022184636 |DM : 0.03748147 |TA : 0.11854112 |AlignPos : 0.0 | 0 hr 00 min
+Train Inter:400 | loss:  0.37394482 |UBFC_my_rm : 0.22984773 |CM : -0.021819215 |DM : 0.1440971 |TA : 0.11578834 |AlignPos : 0.0 | 0 hr 01 min
+Train Inter:500 | loss:  0.19827566 |UBFC_my_rm : 0.19225115 |CM : -0.02246635 |DM : 0.006024504 |TA : 0.12760955 |AlignPos : 0.0 | 0 hr 01 min
+Train Inter:600 | loss:  0.17134547 |UBFC_my_rm : 0.15621018 |CM : -0.021532526 |DM : 0.015135284 |TA : 0.12468815 |AlignPos : 0.0 | 0 hr 01 min
+Train Inter:700 | loss:  0.21789545 |UBFC_my_rm : 0.16715783 |CM : -0.019563187 |DM : 0.050737623 |TA : 0.12516236 |AlignPos : 0.0 | 0 hr 02 min
+Train Inter:800 | loss:  0.18636514 |UBFC_my_rm : 0.16073239 |CM : -0.02179837 |DM : 0.025632758 |TA : 0.13953227 |AlignPos : 0.0 | 0 hr 02 min
+Train Inter:900 | loss:  0.17410064 |UBFC_my_rm : 0.15637481 |CM : -0.020369017 |DM : 0.017725823 |TA : 0.12662888 |AlignPos : 0.0 | 0 hr 02 min
