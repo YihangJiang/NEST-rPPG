@@ -36,6 +36,7 @@ analysis/pure_figures/
 analysis/ubfc_stmap_figures/
 analysis/pure_stmap_figures/
 
+NEST-rPPG/rppg-env/
 # Video and data files
 *.avi
 *.mat

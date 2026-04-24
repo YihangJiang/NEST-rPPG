@@ -7,20 +7,5 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 
-python train_regions_arc.py --src 'UBFC_my_in' -t 'PURE_my_in' -ui --weight_info 0
-python eval_from_bvp.py
-python train_regions_arc.py --src 'UBFC_my_in' -t 'PURE_my_in' -ui --weight_info 0.01
-python eval_from_bvp.py
-python train_regions_arc.py --src 'UBFC_my_rm' -t 'PURE_my_in'
-python eval_from_bvp.py
-python train_regions_arc.py --src 'UBFC_my_rm' -t 'PURE_my_rm'
-python eval_from_bvp.py
-
-python train_regions_arc.py --src 'BUAA_my_in' -t 'UBFC_my_in' -ui --weight_info 0
-python eval_from_bvp.py
-python train_regions_arc.py --src 'BUAA_my_in' -t 'UBFC_my_in' -ui --weight_info 0.01
-python eval_from_bvp.py
-python train_regions_arc.py --src 'BUAA_my_rm' -t 'UBFC_my_in'
-python eval_from_bvp.py
-python train_regions_arc.py --src 'BUAA_my_rm' -t 'UBFC_my_rm'
+python train_regions_arc.py --src 'PURE_my_in' -t 'UBFC_my_in' -ui --weight_info 0
 python eval_from_bvp.py
