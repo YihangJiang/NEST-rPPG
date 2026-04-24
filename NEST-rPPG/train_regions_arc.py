@@ -297,8 +297,12 @@ else:
     print('Using CPU')
 
 # ── arc_net: drop-in replacement for BaseNet with temporal attention + U-Net decoder ──
-BaseNet = model.arc_net().to(device=device)
+#BaseNet = model.base_net_attn().to(device=device)
+#BaseNet = model.base_net_attn_skip().to(device=device)
+BaseNet = model.base_net_res_skip().to(device=device)
 #BaseNet = model.transformer_net().to(device=device)
+#BaseNet = model.arc_net().to(device=device)
+
 
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
 loss_func_NP = MyLoss.P_loss3().to(device)
