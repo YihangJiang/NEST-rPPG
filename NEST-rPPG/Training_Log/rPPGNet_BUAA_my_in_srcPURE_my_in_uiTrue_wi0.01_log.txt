@@ -1,0 +1,30 @@
+
+----------------------------------------------- [START 2026-05-01 18:37:13] ---------------------------------------------------
+
+TRAINING CONFIG (regions arc_net)
+  Target domain:     BUAA_my_in
+  Target index:      /home/psa14/projects/NEST-rPPG/NEST-rPPG/STMap/STMap_Index/BUAA_my_in
+  Target STMap:      STMap_RGB.png
+  Source domains:    ['PURE_my_in']
+    [0] PURE_my_in -> /home/psa14/projects/NEST-rPPG/NEST-rPPG/STMap/STMap_Index/PURE_my_in
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNetAttnSkip
+  Source samples:    10786  (target: 11060)
+  Log file:          /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_BUAA_my_in_srcPURE_my_in_uiTrue_wi0.01_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.3135246 |PURE_my_in : 0.98927164 |CM : -0.010854204 |DM : 0.2750543 |TA : 0.07134861 |AlignPos : 4.9198647 | 0 hr 00 min
+Train Inter:100 | loss:  0.29419208 |PURE_my_in : 0.22827911 |CM : -0.011323081 |DM : 0.018097127 |TA : 0.11208546 |AlignPos : 4.7815824 | 0 hr 00 min
+Train Inter:200 | loss:  0.23562142 |PURE_my_in : 0.16312397 |CM : -0.01119733 |DM : 0.016104626 |TA : 0.11734301 |AlignPos : 5.639284 | 0 hr 00 min
+Train Inter:300 | loss:  0.17765501 |PURE_my_in : 0.109031975 |CM : -0.011498059 |DM : 0.024541005 |TA : 0.12537742 |AlignPos : 4.408204 | 0 hr 01 min
+Train Inter:400 | loss:  0.13639624 |PURE_my_in : 0.0802688 |CM : -0.011559589 |DM : 0.008172906 |TA : 0.1323154 |AlignPos : 4.795454 | 0 hr 01 min
+Train Inter:500 | loss:  0.16013153 |PURE_my_in : 0.082716644 |CM : -0.011272845 |DM : 0.030932797 |TA : 0.12867212 |AlignPos : 4.6482086 | 0 hr 01 min
+Train Inter:600 | loss:  0.1327863 |PURE_my_in : 0.06736642 |CM : -0.011585066 |DM : 0.019004058 |TA : 0.13214111 |AlignPos : 4.6415815 | 0 hr 02 min
+Train Inter:700 | loss:  0.116957575 |PURE_my_in : 0.054745913 |CM : -0.011985395 |DM : 0.013503049 |TA : 0.1270386 |AlignPos : 4.870862 | 0 hr 02 min
+Train Inter:800 | loss:  0.10970524 |PURE_my_in : 0.05784726 |CM : -0.011544993 |DM : 0.007508144 |TA : 0.1304236 |AlignPos : 4.4349833 | 0 hr 03 min
+Train Inter:900 | loss:  0.09702152 |PURE_my_in : 0.04157448 |CM : -0.011362852 |DM : 0.009857818 |TA : 0.12190342 |AlignPos : 4.5589223 | 0 hr 03 min
+Train Inter:1000 | loss:  0.09604448 |PURE_my_in : 0.042419255 |CM : -0.011603149 |DM : 0.006274356 |TA : 0.13021523 |AlignPos : 4.7350864 | 0 hr 03 min

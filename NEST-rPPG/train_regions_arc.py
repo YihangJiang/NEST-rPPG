@@ -298,8 +298,8 @@ else:
 
 # ── arc_net: drop-in replacement for BaseNet with temporal attention + U-Net decoder ──
 #BaseNet = model.base_net_attn().to(device=device)
-#BaseNet = model.base_net_attn_skip().to(device=device)
-BaseNet = model.base_net_res_skip().to(device=device)
+BaseNet = model.base_net_attn_skip().to(device=device)
+#BaseNet = model.base_net_res_skip().to(device=device)
 #BaseNet = model.transformer_net().to(device=device)
 #BaseNet = model.arc_net().to(device=device)
 
@@ -322,7 +322,8 @@ rPPGNet_name = config.build_run_name(
     src=source_domain,
     spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
     temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
-    ui=getattr(args, 'use_infonce', False)
+    ui=getattr(args, 'use_infonce', False),
+    weight_info=getattr(args, 'weight_info', None),
 )
 
 log = Logger()
@@ -573,5 +574,22 @@ try:
     print("Saved last Wave_sort path to:", last_path_file)
 except Exception as e:
     print("Warning: failed to write last_wave_sort_path.txt:", repr(e))
+
+# Write run metadata so eval_from_bvp can embed it in the eval JSON.
+try:
+    import json as _json
+    meta = {
+        "source_domain": source_domain,
+        "target_domain": tgt_domain,
+        "weight_info": getattr(args, 'weight_info', None),
+        "run_name": rPPGNet_name,
+    }
+    meta_path = os.path.join(os.path.abspath(wave_sort_out), "run_meta.json")
+    os.makedirs(os.path.abspath(wave_sort_out), exist_ok=True)
+    with open(meta_path, "w") as f:
+        _json.dump(meta, f, indent=2)
+    print("Saved run metadata to:", meta_path)
+except Exception as e:
+    print("Warning: failed to write run_meta.json:", repr(e))
 
 # %%

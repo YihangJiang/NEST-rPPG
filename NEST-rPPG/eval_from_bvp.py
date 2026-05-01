@@ -94,10 +94,20 @@ print(f"Saved worst subject signals plot: {worst_signals_path}")
 
 # 3) JSON: summary metrics + context
 json_path = os.path.join(feature_dir, "eval_result.json")
+# Read run_meta.json written by train_regions.py to pick up weight_info etc.
+run_meta = {}
+run_meta_path = os.path.join(save_path, "run_meta.json")
+if os.path.isfile(run_meta_path):
+    try:
+        with open(run_meta_path) as _f:
+            run_meta = json.load(_f)
+    except Exception:
+        pass
 payload = {
     "save_path": save_path,
-    "source_domain": config.SRC_DOMAIN,
-    "target_domain": config.TGT_DOMAIN,
+    "source_domain": run_meta.get("source_domain", config.SRC_DOMAIN),
+    "target_domain": run_meta.get("target_domain", config.TGT_DOMAIN),
+    "weight_info": run_meta.get("weight_info"),
     "loss_type": config.LOSS_TYPE,
     "result": result,
 }
