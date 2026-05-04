@@ -1,0 +1,41 @@
+digraph BaseNet {
+	fontsize=16 rankdir=LR
+	input [label="Input STMap\n(B, 3, 25, 512)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	stem [label="conv1 + bn1 + relu" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	l1 [label=layer1 fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	l2 [label=layer2 fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	l3 [label=layer3 fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	l4 [label="layer4 (em)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	av1 [label="get_av(layer1)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	av2 [label="get_av(layer2)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	av3 [label="get_av(layer3)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	av4 [label="get_av(layer4)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	avcat [label="av = cat([av1,av2,av3,av4])" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	avgpool [label="AdaptiveAvgPool2d(1,1)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	fc [label="fc(512→1)\nHR" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	up1 [label="up1\nConvT + BasicBlock" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	up2 [label="up2\nConvT + BasicBlock" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	up3 [label="up3\nConvT + BasicBlock" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	up4 [label="up4\nConvT + BasicBlock" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	sig [label="Sig (B, H?, T?)\n.squeeze(1)" fillcolor="#eef6ff" shape=box style="rounded,filled"]
+	input -> stem
+	stem -> l1
+	l1 -> l2
+	l2 -> l3
+	l3 -> l4
+	l1 -> av1
+	l2 -> av2
+	l3 -> av3
+	l4 -> av4
+	av1 -> avcat
+	av2 -> avcat
+	av3 -> avcat
+	av4 -> avcat
+	l4 -> avgpool
+	avgpool -> fc
+	l4 -> up1
+	up1 -> up2
+	up2 -> up3
+	up3 -> up4
+	up4 -> sig
+}
