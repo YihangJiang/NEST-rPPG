@@ -172,7 +172,7 @@ class BaseNetSkip(nn.Module):
     """
     Same encoder / HR / av heads as BaseNet, but:
     - TemporalAwareStem (3×7, stride 2) instead of ImageNet 7×7 stem
-    - BVP decoder fuses skip features from layer3, layer2, layer1 (U-Net-style)
+    - BVP decoder fuses one skip from layer3 into the path after up1 (256 ch)
 
     Forward API matches BaseNet: returns (Sig, HR, av).
     """
@@ -210,20 +210,10 @@ class BaseNetSkip(nn.Module):
             BasicBlock(32, 1, [1, 1], downsample=1),
         )
 
-        # Merge concat(x_dec, skip) -> same channel count as x_dec before concat
+        # Single skip: concat layer3 features with decoder after up1, merge to 256 ch
         self.merge1 = nn.Sequential(
             nn.Conv2d(256 + 256, 256, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-        )
-        self.merge2 = nn.Sequential(
-            nn.Conv2d(64 + 128, 64, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-        )
-        self.merge3 = nn.Sequential(
-            nn.Conv2d(32 + 64, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
         )
 
@@ -241,11 +231,9 @@ class BaseNetSkip(nn.Module):
 
         x = self.layer1(x)
         av1 = self.get_av(x)
-        e1 = x
 
         x = self.layer2(x)
         av2 = self.get_av(x)
-        e2 = x
 
         x = self.layer3(x)
         av3 = self.get_av(x)
@@ -261,9 +249,7 @@ class BaseNetSkip(nn.Module):
         x = self.up1(em)
         x = _fuse_skip(x, e3, self.merge1)
         x = self.up2(x)
-        x = _fuse_skip(x, e2, self.merge2)
         x = self.up3(x)
-        x = _fuse_skip(x, e1, self.merge3)
         x = self.up4(x)
         Sig = x.squeeze(dim=1)
 
@@ -282,7 +268,7 @@ class BaseNetResSkip(nn.Module):
 
     Differences vs BaseNetSkip:
       - Stem:    original ResNet-18 7×7 conv (same as BaseNet, NOT TemporalAwareStem)
-      - Decoder: same U-Net skip fusions as BaseNetSkip (layer3/2/1)
+      - Decoder: three U-Net skip fusions (layer3/2/1); BaseNetSkip uses one (layer3 only)
 
     Forward API: forward(x) -> (Sig, HR, av)  identical to BaseNet / BaseNetSkip.
     """
