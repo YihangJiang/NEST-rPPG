@@ -268,3 +268,118 @@ class BaseNetSkip(nn.Module):
         Sig = x.squeeze(dim=1)
 
         return Sig, HR, av
+
+
+# =============================================================================
+# BaseNetResSkip — BaseNet stem + U-Net skip fusions, no TemporalAttention
+# Isolates contribution of skip fusions alone (no custom stem, no attention).
+# =============================================================================
+
+
+class BaseNetResSkip(nn.Module):
+    """
+    Ablation model: original ResNet stem, U-Net skip fusions, no TemporalAttention.
+
+    Differences vs BaseNetSkip:
+      - Stem:    original ResNet-18 7×7 conv (same as BaseNet, NOT TemporalAwareStem)
+      - Decoder: same U-Net skip fusions as BaseNetSkip (layer3/2/1)
+
+    Forward API: forward(x) -> (Sig, HR, av)  identical to BaseNet / BaseNetSkip.
+    """
+
+    def __init__(self):
+        super().__init__()
+        from torchvision.models import ResNet18_Weights
+
+        resnet = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+
+        self.conv1 = resnet.conv1
+        self.bn1 = resnet.bn1
+        self.relu = resnet.relu
+        self.layer1 = resnet.layer1
+        self.layer2 = resnet.layer2
+        self.layer3 = resnet.layer3
+        self.layer4 = resnet.layer4
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512, 1)
+
+        self.up1 = nn.Sequential(
+            nn.ConvTranspose2d(512, 512, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(512, 256, [2, 1], downsample=1),
+        )
+        self.up2 = nn.Sequential(
+            nn.ConvTranspose2d(256, 256, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(256, 64, [1, 1], downsample=1),
+        )
+        self.up3 = nn.Sequential(
+            nn.ConvTranspose2d(64, 64, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(64, 32, [2, 1], downsample=1),
+        )
+        self.up4 = nn.Sequential(
+            nn.ConvTranspose2d(32, 32, kernel_size=[1, 2], stride=[1, 2]),
+            BasicBlock(32, 1, [1, 1], downsample=1),
+        )
+
+        self.merge1 = nn.Sequential(
+            nn.Conv2d(256 + 256, 256, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+        )
+        self.merge2 = nn.Sequential(
+            nn.Conv2d(64 + 128, 64, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+        )
+        self.merge3 = nn.Sequential(
+            nn.Conv2d(32 + 64, 32, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+        )
+
+    @staticmethod
+    def get_av(x: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+        av = x.mean(dim=(-1, -2))
+        min_val, _ = torch.min(av, dim=1, keepdim=True)
+        max_val, _ = torch.max(av, dim=1, keepdim=True)
+        denom = (max_val - min_val).clamp_min(eps)
+        av = (av - min_val) / denom
+        return torch.nan_to_num(av, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def forward(self, x: torch.Tensor):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x = self.layer1(x)
+        av1 = self.get_av(x)
+        e1 = x
+
+        x = self.layer2(x)
+        av2 = self.get_av(x)
+        e2 = x
+
+        x = self.layer3(x)
+        av3 = self.get_av(x)
+        e3 = x
+
+        em = self.layer4(x)
+        av4 = self.get_av(em)
+
+        av = torch.cat([av1, av2, av3, av4], dim=1)
+
+        HR = self.fc(self.avgpool(em).view(em.size(0), -1))
+
+        x = self.up1(em)
+        x = _fuse_skip(x, e3, self.merge1)
+        x = self.up2(x)
+        x = _fuse_skip(x, e2, self.merge2)
+        x = self.up3(x)
+        x = _fuse_skip(x, e1, self.merge3)
+        x = self.up4(x)
+        Sig = x.squeeze(dim=1)
+
+        return Sig, HR, av
+
+
+base_net_res_skip = BaseNetResSkip

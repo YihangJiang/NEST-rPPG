@@ -9,6 +9,7 @@
 # %autoreload 2
 
 import os
+import json
 import random
 from types import SimpleNamespace
 
@@ -64,6 +65,7 @@ if _USE_JUPYTER_CONFIG:
         # When False: disable InfoNCE (no pos/neg forwards, align_pos_loss=0).
         # When True: use pos/neg domains for contrastive alignment.
         use_infonce=False,
+        regions='all',
         grad_clip=5.0,
     )
 else:
@@ -93,6 +95,8 @@ else:
     if not hasattr(args, 'weight_info'):
         # Used later as: loss = loss + args.weight_info * align_pos_loss
         args.weight_info = 0.01
+    if not hasattr(args, 'regions'):
+        args.regions = 'all'
 
 # ============ End Cell 1 ============
 
@@ -120,6 +124,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 print("  Random seed:", args.seed, "(deterministic training)")
 print("  weight_info:", getattr(args, "weight_info", 0.0))
+print("  regions:", getattr(args, "regions", "all"))
 
 # Test/target domain can be passed from CLI via -t/--tgt.
 tgt_domain = args.tgt
@@ -297,6 +302,7 @@ else:
     print('Using CPU')
 
 BaseNet = model.BaseNet().to(device=device)
+# BaseNet = model.BaseNetResSkip().to(device=device)
 
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
 loss_func_NP = MyLoss.P_loss3().to(device)
@@ -416,26 +422,19 @@ for iter_num in range(max_iter + 1):
         q = F.normalize(av, dim=1)
         k_pos = F.normalize(av_pos[:m], dim=1)
         k_neg = F.normalize(av_neg[:m], dim=1)
-        # Paired pos vs paired neg only (same index i): softmax over [q·k_pos[i], q·k_neg[i]].
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = (q * k_neg).sum(dim=1, keepdim=True) / tau  # (m, 1) — only k_neg[i] for row i
         neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
         pos_scores = torch.mm(q, k_pos.t()) / tau  # (m, m)
- 
-        logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2)
+        regions_mode = str(getattr(args, 'regions', 'all')).lower()
+        if regions_mode == "neg":
+            logits = torch.cat([neg_scores], dim=1)
+        elif regions_mode == "pos":
+            logits = torch.cat([pos_scores], dim=1)
+        else:
+            logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2)
         labels = torch.zeros(m, dtype=torch.long, device=logits.device)
+        # labels = torch.arange(m, device=logits.device)
         align_pos_loss = F.cross_entropy(logits, labels)
-        # Original: all k_neg[j] as negatives for each row i (full (m, m+1) logits).
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
-        # logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, m+1)
-        # labels = torch.zeros(m, dtype=torch.long, device=logits.device)
-        # align_pos_loss = F.cross_entropy(logits, labels)
-        # Previous variant (batch keys): softmax over all k_pos and k_neg — also penalizes high q·k_pos[j], j!=i.
-        # keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
-        # logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
-        # labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
-        # align_pos_loss = F.cross_entropy(logits, labels)
+
 
     # One-time NaN diagnostics (helps locate first NaN source)
     if not _printed_nan_debug:
@@ -591,5 +590,23 @@ try:
     print("Saved last Wave_sort path to:", last_path_file)
 except Exception as e:
     print("Warning: failed to write last_wave_sort_path.txt:", repr(e))
+
+try:
+    os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
+    meta_path = os.path.join(config.RESULT_LOG_DIR, "last_train_regions_meta.json")
+    with open(meta_path, "w") as f:
+        json.dump(
+            {
+                "source_domain": source_domain,
+                "target_domain": tgt_domain,
+                "weight_info": float(getattr(args, "weight_info", 0.0)),
+                "regions": str(getattr(args, "regions", "all")),
+            },
+            f,
+            indent=2,
+        )
+    print("Saved train_regions meta to:", meta_path)
+except Exception as e:
+    print("Warning: failed to write last_train_regions_meta.json:", repr(e))
 
 # %%

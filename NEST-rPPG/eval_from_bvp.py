@@ -18,9 +18,37 @@ from utils.eval_utils import (
     estimate_hr_from_psd,
     plot_subject_error_bars,
     write_segment_errors_csv,
+    append_regions_eval_summary_csv,
     plot_worst_subject_from_segment_csv,
     plot_worst_subject_signals,
 )
+
+
+def _parse_train_regions_run_dir_name(run_dir_basename: str):
+    """
+    Parse Wave_sort folder name produced by train_regions.py:
+    rPPGNet_<tgt>_src<src>_uiTrue|_uiFalse
+    where <src> is the same string as CLI --src and <tgt> matches -t / --tgt.
+    Returns (target_domain, source_domain) or (None, None) if the pattern does not match.
+    """
+    if not run_dir_basename.startswith("rPPGNet_"):
+        return None, None
+    body = run_dir_basename[len("rPPGNet_"):]
+    stripped = None
+    for suf in ("_uiTrue", "_uiFalse"):
+        if body.endswith(suf):
+            stripped = body[: -len(suf)]
+            break
+    if stripped is None:
+        return None, None
+    sep = "_src"
+    idx = stripped.find(sep)
+    if idx < 0:
+        return None, None
+    tgt = stripped[:idx]
+    src = stripped[idx + len(sep):]
+    return tgt, src
+
 
 save_path = config.EVAL_SAVE_PATH
 # If train_regions.py was run recently, follow its Wave_sort output path automatically.
@@ -101,9 +129,32 @@ payload = {
     "loss_type": config.LOSS_TYPE,
     "result": result,
 }
+
+# Append one row to cumulative regions summary (source/target/weight/regions from train meta).
+# These fields must come from last_train_regions_meta.json written by train_regions.py.
+meta_path = os.path.join(config.RESULT_LOG_DIR, "last_train_regions_meta.json")
+if not os.path.isfile(meta_path):
+    raise FileNotFoundError(f"Missing required train meta JSON: {meta_path}")
+with open(meta_path, "r") as f:
+    meta = json.load(f)
+src_for_csv = str(meta["source_domain"])
+tgt_for_csv = str(meta["target_domain"])
+weight_for_csv = float(meta["weight_info"])
+regions_for_csv = str(meta["regions"])
+payload["regions"] = regions_for_csv
 with open(json_path, "w") as f:
     json.dump(payload, f, indent=2)
-print(f"Saved eval summary JSON: {json_path}")
+print(f"Updated eval summary JSON with regions: {json_path}")
+summary_csv = os.path.join(config.RESULT_LOG_DIR, "regions_eval_summary.csv")
+append_regions_eval_summary_csv(
+    summary_csv,
+    source_domain=src_for_csv,
+    target_domain=tgt_for_csv,
+    weight=weight_for_csv,
+    regions=regions_for_csv,
+    result=result,
+)
+print(f"Appended regions eval summary row: {summary_csv}")
 
 # Print table: ME, Std, MAE, RMSE, MER, Pearson r
 print(f"Source domain: {config.SRC_DOMAIN}")

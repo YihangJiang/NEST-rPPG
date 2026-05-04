@@ -126,6 +126,9 @@ def get_args():
                         help='Weight for InfoNCE alignment loss')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
+    parser.add_argument('--regions', dest='regions', type=str, default='all',
+                        choices=['all', 'neg', 'pos'],
+                        help='InfoNCE logits source: all (pos+neg), neg-only, or pos-only')
     return parser.parse_args()
 
 def MyEval(HR_pr, HR_rel):

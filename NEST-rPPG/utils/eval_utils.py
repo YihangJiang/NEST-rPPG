@@ -9,12 +9,14 @@ Functions moved from eval_from_bvp.py so they can be reused:
 - my_eval
 - run_eval
 - visualize_mat_waves
+- append_regions_eval_summary_csv
 """
 import os
 import csv
 from typing import List, Optional, Dict, Any, Tuple
 
 import numpy as np
+import pandas as pd
 import scipy.io as scio
 from scipy import signal as scipy_signal
 from tqdm import tqdm
@@ -264,6 +266,77 @@ def write_segment_errors_csv(details: Dict[str, Any], csv_path: str) -> str:
         for r in rows:
             w.writerow({k: r.get(k, "") for k in fieldnames})
     return os.path.abspath(csv_path)
+
+
+def append_regions_eval_summary_csv(
+    csv_path: str,
+    *,
+    source_domain: str,
+    target_domain: str,
+    weight: float,
+    regions: str,
+    result: Dict[str, Dict[str, Any]],
+    metric_key: str = "HR",
+) -> str:
+    """
+    Append one row to a summary CSV (creates file with header if missing).
+
+    Intended for `run_regions.sh` flows: after `train_regions.py` + `eval_from_bvp.py`,
+    record source/target domains, InfoNCE weight, and HR metrics from `run_eval` output.
+
+    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, RMSE, r
+    """
+    if metric_key not in result:
+        raise KeyError(f"result has no key {metric_key!r}; keys: {list(result.keys())}")
+    m = result[metric_key]
+    row = {
+        "Source Domain": source_domain,
+        "Target domain": target_domain,
+        "Weight": weight,
+        "Regions": regions,
+        "Std": m.get("Std", np.nan),
+        "MAE": m.get("MAE", np.nan),
+        "RMSE": m.get("RMSE", np.nan),
+        "r": m.get("r", np.nan),
+    }
+    fieldnames = ["Source Domain", "Target domain", "Weight", "Regions", "Std", "MAE", "RMSE", "r"]
+    training_cols = fieldnames[:4]
+    inference_cols = fieldnames[4:]
+
+    csv_path = os.path.abspath(csv_path)
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+    if os.path.exists(csv_path):
+        # Append to existing hierarchical CSV.
+        df = pd.read_csv(csv_path, header=[0, 1])
+        new_row = pd.DataFrame([[
+            source_domain, target_domain, weight, regions,
+            m.get("Std", np.nan), m.get("MAE", np.nan),
+            m.get("RMSE", np.nan), m.get("r", np.nan),
+        ]], columns=df.columns)
+        training_cols = df.columns[:4]
+        match = pd.Series(True, index=df.index)
+        for c in training_cols:
+            match = match & (df[c].astype(str) == str(new_row.iloc[0][c]))
+        if bool(match.any()):
+            df.loc[match, :] = new_row.iloc[0].values
+        else:
+            df = pd.concat([df, new_row], ignore_index=True)
+    else:
+        # Create new DataFrame with grouped MultiIndex headers.
+        multi_cols = pd.MultiIndex.from_tuples(
+            [("Training", col) for col in training_cols] +
+            [("Inference", col) for col in inference_cols]
+        )
+        new_row = [[
+            source_domain, target_domain, weight, regions,
+            m.get("Std", np.nan), m.get("MAE", np.nan),
+            m.get("RMSE", np.nan), m.get("r", np.nan),
+        ]]
+        df = pd.DataFrame(new_row, columns=multi_cols)
+
+    df.to_csv(csv_path, index=False)
+    return csv_path
 
 
 def plot_worst_subject_from_segment_csv(
