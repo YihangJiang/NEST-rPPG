@@ -31,7 +31,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from torch.utils.data import DataLoader
+import cv2
+from PIL import Image
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, Dataset
 
 import MyDataset
 import MyLoss
@@ -77,6 +80,12 @@ def parse_args():
     parser.add_argument('--use_infonce', action='store_true', default=False)
     parser.add_argument('--exclude_participants', type=str, default='',
                         help='Comma-separated participant IDs to exclude (e.g. "07,08")')
+    parser.add_argument('--hr_aug_max', type=float, default=1.0,
+                        help='Max temporal compression factor (1.0 = off, 2.0 = up to 2× HR)')
+    parser.add_argument('--hr_aug_prob', type=float, default=0.5,
+                        help='Probability of applying HR augmentation per training sample')
+    parser.add_argument('--hr_aug_exclude', type=str, default='07',
+                        help='Participant IDs to skip HR augmentation for (comma-separated)')
     return parser.parse_args()
 
 
@@ -135,6 +144,113 @@ def subject_kfold_split(subjects, n_folds, fold_idx):
     return train_folders, test_folders
 
 
+class HRAugDataset(Dataset):
+    """Training dataset with temporal compression to simulate higher HR.
+
+    Loads a window of src_len = round(frames_num * r) frames and lets
+    transforms.Resize((64, frames_num)) compress it to frames_num columns.
+    Cardiac cycles appearing in src_len source frames are compressed into
+    frames_num columns, so the apparent HR scales by r = src_len / frames_num.
+
+    The compressed view is placed in the primary slot (data, bvp, HR_rel) so
+    src_loss trains against the augmented-HR signal. The original frames_num
+    window goes in the aux slot for NEST losses (unused when weight_cl=0).
+
+    Participants in exclude_aug_participants are never augmented (their HR is
+    already anomalous and further compression would push labels out of range).
+    """
+
+    def __init__(self, index_dir, data_name, stmap_name, frames_num, args,
+                 hr_aug_max=2.0, hr_aug_prob=0.5, exclude_aug_participants=None):
+        self.index_dir = index_dir
+        self.data_name = data_name
+        self.stmap_name = stmap_name
+        self.frames_num = int(frames_num)
+        self.args = args
+        self.hr_aug_max = hr_aug_max
+        self.hr_aug_prob = hr_aug_prob
+        self.exclude_aug = set(exclude_aug_participants or [])
+        self.datalist = sorted(os.listdir(index_dir))
+        resize_size = (64, self.frames_num)
+        self.transform = transforms.Compose([
+            transforms.Resize(size=resize_size),
+            transforms.ToTensor(),
+        ])
+
+    def __len__(self):
+        return len(self.datalist)
+
+    def _row_normalize(self, crop):
+        out = crop.copy().astype(np.float32)
+        for c in range(out.shape[2]):
+            for r in range(out.shape[0]):
+                row = out[r, :, c]
+                rng = row.max() - row.min()
+                out[r, :, c] = 255.0 * (row - row.min()) / (rng + 1e-5)
+        return out
+
+    def _load_label(self, now_path, step_index, length):
+        bvp_raw = io.loadmat(os.path.join(now_path, 'Label', 'BVP.mat'))['BVP'].reshape(-1).astype(np.float32)
+        seg = bvp_raw[step_index:step_index + length]
+        seg = (seg - seg.min()) / (seg.max() - seg.min() + 1e-8)
+        hr_raw = io.loadmat(os.path.join(now_path, 'Label', 'HR.mat'))['HR'].reshape(-1).astype(np.float32)
+        gt = float(np.nanmean(hr_raw[step_index:step_index + length]))
+        return seg, gt
+
+    def __getitem__(self, idx):
+        mat = io.loadmat(os.path.join(self.index_dir, self.datalist[idx]))
+        now_path = str(mat['Path'][0])
+        step_index = int(mat['Step_Index'].flat[0])
+
+        img = cv2.imread(os.path.join(now_path, 'STMap', self.stmap_name))
+        if img is None:
+            # Fallback: return a zero sample (rare edge case)
+            z = np.zeros((3, 64, self.frames_num), dtype=np.float32)
+            zb = np.zeros(self.frames_num, dtype=np.float32)
+            zt = torch.from_numpy(z)
+            return (zt, zb, np.float32(0.0), zt, zb, np.float32(0.0), now_path)
+
+        _, W_full, _ = img.shape
+
+        # Check whether this participant is excluded from augmentation
+        folder = os.path.basename(now_path)
+        participant = get_participant_id(folder)
+        can_aug = participant not in self.exclude_aug
+
+        # Draw augmentation factor r
+        if can_aug and random.random() < self.hr_aug_prob:
+            max_r = min(self.hr_aug_max, (W_full - step_index) / self.frames_num)
+            r = random.uniform(1.2, max_r) if max_r > 1.2 else 1.0
+        else:
+            r = 1.0
+
+        src_len = min(round(self.frames_num * r), W_full - step_index)
+
+        # Always build the original frames_num crop (aux slot / fallback)
+        crop_orig = self._row_normalize(img[:, step_index:step_index + self.frames_num, :])
+        bvp_orig, hr_orig = self._load_label(now_path, step_index, self.frames_num)
+        map_orig = self.transform(Image.fromarray(np.uint8(crop_orig)))
+
+        if src_len > self.frames_num:
+            # Long crop → Resize compresses width from src_len → frames_num (higher HR)
+            crop_long = self._row_normalize(img[:, step_index:step_index + src_len, :])
+            bvp_long, hr_long = self._load_label(now_path, step_index, src_len)
+            map_comp = self.transform(Image.fromarray(np.uint8(crop_long)))
+            # Resample BVP to match compressed STMap
+            x_src = np.linspace(0, 1, src_len)
+            x_new = np.linspace(0, 1, self.frames_num)
+            bvp_comp = np.interp(x_new, x_src, bvp_long).astype(np.float32)
+            hr_comp = np.float32(hr_long * src_len / self.frames_num)
+            # Primary = compressed (augmented HR), aux = original
+            return (map_comp, bvp_comp, hr_comp,
+                    map_orig, bvp_orig, np.float32(hr_orig),
+                    now_path)
+        else:
+            return (map_orig, bvp_orig, np.float32(hr_orig),
+                    map_orig, bvp_orig, np.float32(hr_orig),
+                    now_path)
+
+
 def build_fold_index(data_root, subjects, index_dir, stmap_name, frames_num, step=10):
     """Clear and rebuild STMap index for a subject subset."""
     os.makedirs(index_dir, exist_ok=True)
@@ -157,10 +273,21 @@ def train_and_eval_fold(fold_idx, train_subjects, test_subjects,
     build_fold_index(data_root, train_subjects, train_idx_dir, args.stmap_name, args.frames_num)
     build_fold_index(data_root, test_subjects, test_idx_dir, args.stmap_name, args.frames_num)
 
-    train_db = MyDataset.Data_DG(
-        root_dir=train_idx_dir, dataName=data_name,
-        STMap=args.stmap_name, frames_num=args.frames_num, args=args
-    )
+    if args.hr_aug_max > 1.0:
+        exclude_aug = {p.strip() for p in args.hr_aug_exclude.split(',') if p.strip()}
+        train_db = HRAugDataset(
+            index_dir=train_idx_dir, data_name=data_name,
+            stmap_name=args.stmap_name, frames_num=args.frames_num, args=args,
+            hr_aug_max=args.hr_aug_max, hr_aug_prob=args.hr_aug_prob,
+            exclude_aug_participants=exclude_aug,
+        )
+        log.write(f"  HR augmentation: r_max={args.hr_aug_max}, prob={args.hr_aug_prob}, "
+                  f"excluded from aug={exclude_aug}\n")
+    else:
+        train_db = MyDataset.Data_DG(
+            root_dir=train_idx_dir, dataName=data_name,
+            STMap=args.stmap_name, frames_num=args.frames_num, args=args
+        )
     test_db = MyDataset.Data_DG(
         root_dir=test_idx_dir, dataName=data_name,
         STMap=args.stmap_name, frames_num=args.frames_num, args=args
