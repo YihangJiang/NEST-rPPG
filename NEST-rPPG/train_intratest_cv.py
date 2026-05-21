@@ -455,6 +455,7 @@ def main():
             fold_idx, train_subj, test_subj,
             data_root, data_name, args, device, log
         )
+        metrics['dataset'] = args.dataset
         all_metrics.append(metrics)
 
         log.write(

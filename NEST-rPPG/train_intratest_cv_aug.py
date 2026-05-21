@@ -82,10 +82,15 @@ def parse_args():
                         help='Comma-separated participant IDs to exclude (e.g. "07,08")')
     parser.add_argument('--hr_aug_max', type=float, default=1.0,
                         help='Max temporal compression factor (1.0 = off, 2.0 = up to 2× HR)')
+    parser.add_argument('--hr_aug_min', type=float, default=1.0,
+                        help='Min temporal stretch factor (1.0 = off, 0.5 = down to 0.5× HR). '
+                             'When <1.0, enables both-ends augmentation (slow + fast HR).')
     parser.add_argument('--hr_aug_prob', type=float, default=0.5,
                         help='Probability of applying HR augmentation per training sample')
     parser.add_argument('--hr_aug_exclude', type=str, default='07',
                         help='Participant IDs to skip HR augmentation for (comma-separated)')
+    parser.add_argument('--run_tag', type=str, default='aug',
+                        help='Tag appended to output CSV name to distinguish from baseline')
     return parser.parse_args()
 
 
@@ -161,13 +166,14 @@ class HRAugDataset(Dataset):
     """
 
     def __init__(self, index_dir, data_name, stmap_name, frames_num, args,
-                 hr_aug_max=2.0, hr_aug_prob=0.5, exclude_aug_participants=None):
+                 hr_aug_max=2.0, hr_aug_min=1.0, hr_aug_prob=0.5, exclude_aug_participants=None):
         self.index_dir = index_dir
         self.data_name = data_name
         self.stmap_name = stmap_name
         self.frames_num = int(frames_num)
         self.args = args
         self.hr_aug_max = hr_aug_max
+        self.hr_aug_min = hr_aug_min
         self.hr_aug_prob = hr_aug_prob
         self.exclude_aug = set(exclude_aug_participants or [])
         self.datalist = sorted(os.listdir(index_dir))
@@ -179,6 +185,62 @@ class HRAugDataset(Dataset):
 
     def __len__(self):
         return len(self.datalist)
+
+    def check_augmentation(self, n_samples=200):
+        """Diagnostic: report what fraction of samples can actually be augmented.
+
+        Reads STMap widths for the first n_samples index files and simulates the
+        augmentation decision with a fixed seed. Returns a summary dict.
+        Runs in the calling process (num_workers=0 semantics).
+        """
+        old_state = random.getstate()
+        random.seed(42)
+
+        check_n = min(n_samples, len(self.datalist))
+        can_aug_count = 0
+        eligible_count = 0   # max_r > 1.2
+        aug_count = 0        # r > 1.0 (actually augmented)
+        r_values = []
+        max_r_values = []
+        w_full_values = []
+
+        for i in range(check_n):
+            mat = io.loadmat(os.path.join(self.index_dir, self.datalist[i]))
+            now_path = str(mat['Path'][0])
+            step_index = int(mat['Step_Index'].flat[0])
+            img = cv2.imread(os.path.join(now_path, 'STMap', self.stmap_name))
+            if img is None:
+                continue
+            _, W_full, _ = img.shape
+            w_full_values.append(W_full)
+            folder = os.path.basename(now_path)
+            participant = get_participant_id(folder)
+            can_aug = participant not in self.exclude_aug
+            if can_aug:
+                can_aug_count += 1
+            max_r = min(self.hr_aug_max, (W_full - step_index) / self.frames_num)
+            max_r_values.append(max_r)
+            if max_r > 1.2:
+                eligible_count += 1
+            if can_aug and random.random() < self.hr_aug_prob:
+                r = random.uniform(1.2, max_r) if max_r > 1.2 else 1.0
+            else:
+                r = 1.0
+            r_values.append(r)
+            if r > 1.0:
+                aug_count += 1
+
+        random.setstate(old_state)
+        return {
+            'checked': check_n,
+            'can_aug_participant': can_aug_count,
+            'eligible_max_r_gt_1.2': eligible_count,
+            'actually_augmented': aug_count,
+            'aug_pct': 100.0 * aug_count / check_n if check_n else 0,
+            'mean_max_r': float(np.mean(max_r_values)) if max_r_values else 0,
+            'mean_W_full': float(np.mean(w_full_values)) if w_full_values else 0,
+            'r_sample': [round(v, 2) for v in r_values[:20]],
+        }
 
     def _row_normalize(self, crop):
         out = crop.copy().astype(np.float32)
@@ -218,13 +280,30 @@ class HRAugDataset(Dataset):
         can_aug = participant not in self.exclude_aug
 
         # Draw augmentation factor r
+        # r > 1.0 → compress (faster HR), r < 1.0 → stretch (slower HR)
+        can_go_high = self.hr_aug_max > 1.2
+        can_go_low  = self.hr_aug_min < 0.8
+
         if can_aug and random.random() < self.hr_aug_prob:
-            max_r = min(self.hr_aug_max, (W_full - step_index) / self.frames_num)
-            r = random.uniform(1.2, max_r) if max_r > 1.2 else 1.0
+            if can_go_high and can_go_low:
+                if random.random() < 0.5:
+                    # High-end: compress STMap → faster HR
+                    max_r = min(self.hr_aug_max, (W_full - step_index) / self.frames_num)
+                    r = random.uniform(1.2, max_r) if max_r > 1.2 else 1.0
+                else:
+                    # Low-end: stretch STMap → slower HR
+                    r = random.uniform(self.hr_aug_min, 0.8)
+            elif can_go_high:
+                max_r = min(self.hr_aug_max, (W_full - step_index) / self.frames_num)
+                r = random.uniform(1.2, max_r) if max_r > 1.2 else 1.0
+            elif can_go_low:
+                r = random.uniform(self.hr_aug_min, 0.8)
+            else:
+                r = 1.0
         else:
             r = 1.0
 
-        src_len = min(round(self.frames_num * r), W_full - step_index)
+        src_len = max(1, min(round(self.frames_num * r), W_full - step_index))
 
         # Always build the original frames_num crop (aux slot / fallback)
         crop_orig = self._row_normalize(img[:, step_index:step_index + self.frames_num, :])
@@ -232,17 +311,27 @@ class HRAugDataset(Dataset):
         map_orig = self.transform(Image.fromarray(np.uint8(crop_orig)))
 
         if src_len > self.frames_num:
-            # Long crop → Resize compresses width from src_len → frames_num (higher HR)
+            # Long crop → Resize compresses width from src_len → frames_num (faster HR)
             crop_long = self._row_normalize(img[:, step_index:step_index + src_len, :])
             bvp_long, hr_long = self._load_label(now_path, step_index, src_len)
-            map_comp = self.transform(Image.fromarray(np.uint8(crop_long)))
-            # Resample BVP to match compressed STMap
+            map_aug = self.transform(Image.fromarray(np.uint8(crop_long)))
             x_src = np.linspace(0, 1, src_len)
             x_new = np.linspace(0, 1, self.frames_num)
-            bvp_comp = np.interp(x_new, x_src, bvp_long).astype(np.float32)
-            hr_comp = np.float32(hr_long * src_len / self.frames_num)
-            # Primary = compressed (augmented HR), aux = original
-            return (map_comp, bvp_comp, hr_comp,
+            bvp_aug = np.interp(x_new, x_src, bvp_long).astype(np.float32)
+            hr_aug = np.float32(hr_long * src_len / self.frames_num)
+            return (map_aug, bvp_aug, hr_aug,
+                    map_orig, bvp_orig, np.float32(hr_orig),
+                    now_path)
+        elif src_len < self.frames_num:
+            # Short crop → Resize stretches width from src_len → frames_num (slower HR)
+            crop_short = self._row_normalize(img[:, step_index:step_index + src_len, :])
+            bvp_short, hr_short = self._load_label(now_path, step_index, src_len)
+            map_aug = self.transform(Image.fromarray(np.uint8(crop_short)))
+            x_src = np.linspace(0, 1, src_len)
+            x_new = np.linspace(0, 1, self.frames_num)
+            bvp_aug = np.interp(x_new, x_src, bvp_short).astype(np.float32)
+            hr_aug = np.float32(hr_short * src_len / self.frames_num)
+            return (map_aug, bvp_aug, hr_aug,
                     map_orig, bvp_orig, np.float32(hr_orig),
                     now_path)
         else:
@@ -278,11 +367,27 @@ def train_and_eval_fold(fold_idx, train_subjects, test_subjects,
         train_db = HRAugDataset(
             index_dir=train_idx_dir, data_name=data_name,
             stmap_name=args.stmap_name, frames_num=args.frames_num, args=args,
-            hr_aug_max=args.hr_aug_max, hr_aug_prob=args.hr_aug_prob,
+            hr_aug_max=args.hr_aug_max, hr_aug_min=args.hr_aug_min,
+            hr_aug_prob=args.hr_aug_prob,
             exclude_aug_participants=exclude_aug,
         )
-        log.write(f"  HR augmentation: r_max={args.hr_aug_max}, prob={args.hr_aug_prob}, "
-                  f"excluded from aug={exclude_aug}\n")
+        sides = 'both ends' if args.hr_aug_min < 0.8 else 'high end only'
+        log.write(f"  HR augmentation ({sides}): r_min={args.hr_aug_min}, r_max={args.hr_aug_max}, "
+                  f"prob={args.hr_aug_prob}, excluded from aug={exclude_aug}\n")
+        if fold_idx == 0:
+            aug_stats = train_db.check_augmentation(n_samples=200)
+            msg = (
+                f"  [AUG DIAGNOSTIC fold 0] checked={aug_stats['checked']} samples | "
+                f"can_aug_participant={aug_stats['can_aug_participant']} | "
+                f"eligible(max_r>1.2)={aug_stats['eligible_max_r_gt_1.2']} | "
+                f"actually_augmented={aug_stats['actually_augmented']} "
+                f"({aug_stats['aug_pct']:.1f}%) | "
+                f"mean_max_r={aug_stats['mean_max_r']:.3f} | "
+                f"mean_W_full={aug_stats['mean_W_full']:.0f}\n"
+                f"  r_sample={aug_stats['r_sample']}\n"
+            )
+            log.write(msg)
+            print(msg, end='')
     else:
         train_db = MyDataset.Data_DG(
             root_dir=train_idx_dir, dataName=data_name,
@@ -582,6 +687,7 @@ def main():
             fold_idx, train_subj, test_subj,
             data_root, data_name, args, device, log
         )
+        metrics['dataset'] = args.dataset
         all_metrics.append(metrics)
 
         log.write(
@@ -628,8 +734,9 @@ def main():
     log.write(f"\nSummary JSON: {summary_path}\n")
 
     # CSV: one row per fold + one aggregate row
+    tag = f'_{args.run_tag}' if args.run_tag else ''
     csv_path = os.path.join(
-        config.RESULT_LOG_DIR, f'intratest_cv_{args.dataset}_wl{args.weight_cl}_results.csv'
+        config.RESULT_LOG_DIR, f'intratest_cv_{args.dataset}_wl{args.weight_cl}{tag}_results.csv'
     )
     fieldnames = ['dataset', 'weight_cl', 'fold', 'train_subjects', 'test_subjects',
                   'ME', 'Std', 'MAE', 'RMSE', 'MER', 'r']
