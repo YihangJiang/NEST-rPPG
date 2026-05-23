@@ -80,6 +80,9 @@ def parse_args():
     parser.add_argument('--use_infonce', action='store_true', default=False)
     parser.add_argument('--exclude_participants', type=str, default='',
                         help='Comma-separated participant IDs to exclude (e.g. "07,08")')
+    parser.add_argument('--session_filter', type=str, default='',
+                        help='Keep only session folders whose name contains this substring '
+                             '(e.g. "100.0" to keep only 100 lux BUAA sessions)')
     parser.add_argument('--hr_aug_max', type=float, default=1.0,
                         help='Max temporal compression factor (1.0 = off, 2.0 = up to 2× HR)')
     parser.add_argument('--hr_aug_min', type=float, default=1.0,
@@ -87,7 +90,7 @@ def parse_args():
                              'When <1.0, enables both-ends augmentation (slow + fast HR).')
     parser.add_argument('--hr_aug_prob', type=float, default=0.5,
                         help='Probability of applying HR augmentation per training sample')
-    parser.add_argument('--hr_aug_exclude', type=str, default='07',
+    parser.add_argument('--hr_aug_exclude', type=str, default='',
                         help='Participant IDs to skip HR augmentation for (comma-separated)')
     parser.add_argument('--run_tag', type=str, default='aug',
                         help='Tag appended to output CSV name to distinguish from baseline')
@@ -649,6 +652,11 @@ def main():
         before = len(subjects)
         subjects = [s for s in subjects if get_participant_id(s) not in excluded]
         print(f"  Excluded participants {excluded}: {before} -> {len(subjects)} subjects")
+
+    if args.session_filter:
+        before = len(subjects)
+        subjects = [s for s in subjects if args.session_filter in s]
+        print(f"  Session filter '{args.session_filter}': {before} -> {len(subjects)} subjects")
 
     device = torch.device('cuda:' + args.GPU if torch.cuda.is_available() else 'cpu')
 

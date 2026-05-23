@@ -129,10 +129,15 @@ def main():
     parser.add_argument('--tag', type=str, default='aug',
                         help='Run tag used in the aug CSV filename (default: aug)')
     parser.add_argument('--weight_cl', type=float, default=0.0)
+    parser.add_argument('--datasets', type=str, default='',
+                        help='Comma-separated list of datasets to compare '
+                             '(default: PURE_my_in,UBFC_my_in,BUAA_my_in)')
     args = parser.parse_args()
 
+    datasets = [d.strip() for d in args.datasets.split(',')] if args.datasets else DATASETS
+
     results = []
-    for dataset in DATASETS:
+    for dataset in datasets:
         baseline_df, b_path = load_results(dataset, args.weight_cl, tag='')
         aug_df,      a_path = load_results(dataset, args.weight_cl, tag=args.tag)
 

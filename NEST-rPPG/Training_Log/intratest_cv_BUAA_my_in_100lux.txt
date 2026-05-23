@@ -1,0 +1,258 @@
+
+============================================================
+Intratest 5-fold CV: BUAA_my_in_100lux
+Started: 2026-05-22 15:11:47
+Subjects: 12 | max_iter: 1000 | batch: 100
+loss_type: DM | seed: 0 | device: cuda:0
+
+[Fold 0] Building indexes...
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+
+============================================================
+Intratest 5-fold CV: BUAA_my_in_100lux
+Started: 2026-05-22 16:16:15
+Subjects: 12 | max_iter: 1000 | batch: 100
+loss_type: DM | seed: 0 | device: cuda:0
+
+[Fold 0] Building indexes...
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 0] iter 0/1000 | train=0.9967 src=0.9967 | val=1.0000 | CM=-0.0120 DM=0.8549 TA=0.0368 |  0 hr 00 min
+  [fold 0] iter 200/1000 | train=0.0167 src=0.0167 | val=0.8975 | CM=-0.0129 DM=1.4435 TA=0.0240 |  0 hr 01 min
+  [fold 0] iter 400/1000 | train=0.0093 src=0.0093 | val=0.8913 | CM=-0.0123 DM=1.4631 TA=0.0206 |  0 hr 02 min
+  [fold 0] iter 600/1000 | train=0.0064 src=0.0064 | val=0.8940 | CM=-0.0127 DM=1.5062 TA=0.0301 |  0 hr 03 min
+  [fold 0] iter 800/1000 | train=0.0053 src=0.0053 | val=0.8913 | CM=-0.0132 DM=1.5336 TA=0.0310 |  0 hr 04 min
+  [fold 0] iter 1000/1000 | train=0.0112 src=0.0112 | val=0.8826 | CM=-0.0126 DM=1.4511 TA=0.0255 |  0 hr 05 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold0/feature/training_curve.png
+[Fold 0] ME=8.8074 Std=2.6404 MAE=8.8074 RMSE=9.1946 MER=0.109988 r=-0.5225
+
+[Fold 1] Building indexes...
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 1] iter 0/1000 | train=0.9954 src=0.9954 | val=1.0000 | CM=-0.0123 DM=0.8628 TA=0.0406 |  0 hr 00 min
+  [fold 1] iter 200/1000 | train=0.0194 src=0.0194 | val=1.0402 | CM=-0.0123 DM=1.5536 TA=0.0218 |  0 hr 01 min
+  [fold 1] iter 400/1000 | train=0.0069 src=0.0069 | val=1.0502 | CM=-0.0123 DM=1.4564 TA=0.0232 |  0 hr 02 min
+  [fold 1] iter 600/1000 | train=0.0045 src=0.0045 | val=1.0524 | CM=-0.0122 DM=1.5706 TA=0.0287 |  0 hr 03 min
+  [fold 1] iter 800/1000 | train=0.0029 src=0.0029 | val=1.0504 | CM=-0.0123 DM=1.6158 TA=0.0296 |  0 hr 04 min
+  [fold 1] iter 1000/1000 | train=0.0022 src=0.0022 | val=1.0530 | CM=-0.0117 DM=1.4958 TA=0.0266 |  0 hr 05 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold1/feature/training_curve.png
+[Fold 1] ME=3.4790 Std=5.5711 MAE=5.4016 RMSE=6.5681 MER=0.069717 r=0.1894
+
+[Fold 2] Building indexes...
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 2] iter 0/1000 | train=0.9975 src=0.9975 | val=1.0000 | CM=-0.0120 DM=0.7636 TA=0.0461 |  0 hr 00 min
+  [fold 2] iter 200/1000 | train=0.0194 src=0.0194 | val=0.9985 | CM=-0.0124 DM=1.5006 TA=0.0237 |  0 hr 01 min
+  [fold 2] iter 400/1000 | train=0.0101 src=0.0101 | val=1.0046 | CM=-0.0130 DM=1.4840 TA=0.0299 |  0 hr 02 min
+  [fold 2] iter 600/1000 | train=0.0064 src=0.0064 | val=1.0065 | CM=-0.0128 DM=1.4684 TA=0.0315 |  0 hr 03 min
+  [fold 2] iter 800/1000 | train=0.0095 src=0.0095 | val=1.0119 | CM=-0.0125 DM=1.5477 TA=0.0265 |  0 hr 04 min
+  [fold 2] iter 1000/1000 | train=0.0050 src=0.0050 | val=1.0076 | CM=-0.0106 DM=1.3662 TA=0.0285 |  0 hr 05 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold2/feature/training_curve.png
+[Fold 2] ME=-8.9539 Std=5.4108 MAE=8.9539 RMSE=10.4617 MER=0.094443 r=1.0000
+
+[Fold 3] Building indexes...
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 3] iter 0/1000 | train=1.0020 src=1.0020 | val=1.0000 | CM=-0.0121 DM=0.7717 TA=0.0474 |  0 hr 00 min
+  [fold 3] iter 200/1000 | train=0.0386 src=0.0386 | val=1.1035 | CM=-0.0126 DM=1.4578 TA=0.0250 |  0 hr 01 min
+  [fold 3] iter 400/1000 | train=0.0283 src=0.0283 | val=1.1075 | CM=-0.0121 DM=1.4341 TA=0.0305 |  0 hr 02 min
+  [fold 3] iter 600/1000 | train=0.0273 src=0.0273 | val=1.0939 | CM=-0.0128 DM=1.5000 TA=0.0288 |  0 hr 03 min
+  [fold 3] iter 800/1000 | train=0.0252 src=0.0252 | val=1.0885 | CM=-0.0122 DM=1.5814 TA=0.0238 |  0 hr 04 min
+  [fold 3] iter 1000/1000 | train=0.0262 src=0.0262 | val=1.0742 | CM=-0.0112 DM=1.4389 TA=0.0285 |  0 hr 05 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold3/feature/training_curve.png
+[Fold 3] ME=-0.3433 Std=1.0849 MAE=1.0849 RMSE=1.1379 MER=0.012699 r=-1.0000
+
+[Fold 4] Building indexes...
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 4] iter 0/1000 | train=1.0119 src=1.0119 | val=1.0000 | CM=-0.0117 DM=0.7839 TA=0.0470 |  0 hr 00 min
+  [fold 4] iter 200/1000 | train=0.0142 src=0.0142 | val=1.0543 | CM=-0.0127 DM=1.7279 TA=0.0255 |  0 hr 01 min
+  [fold 4] iter 400/1000 | train=0.0059 src=0.0059 | val=1.0372 | CM=-0.0125 DM=1.6699 TA=0.0295 |  0 hr 02 min
+  [fold 4] iter 600/1000 | train=0.0070 src=0.0070 | val=1.0461 | CM=-0.0131 DM=1.6898 TA=0.0317 |  0 hr 03 min
+  [fold 4] iter 800/1000 | train=0.0028 src=0.0028 | val=1.0394 | CM=-0.0125 DM=1.7286 TA=0.0257 |  0 hr 04 min
+  [fold 4] iter 1000/1000 | train=0.0022 src=0.0022 | val=1.0548 | CM=-0.0115 DM=1.5209 TA=0.0329 |  0 hr 05 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold4/feature/training_curve.png
+[Fold 4] ME=-7.3608 Std=7.6904 MAE=7.6904 RMSE=10.6454 MER=0.079203 r=-1.0000
+
+============================================================
+AGGREGATE (5-fold CV | BUAA_my_in_100lux):
+  ME: mean=-0.8743  fold_std=6.6381  per_fold=[8.8074, 3.479, -8.9539, -0.3433, -7.3608]
+  Std: mean=4.4795  fold_std=2.3356  per_fold=[2.6404, 5.5711, 5.4108, 1.0849, 7.6904]
+  MAE: mean=6.3876  fold_std=2.9404  per_fold=[8.8074, 5.4016, 8.9539, 1.0849, 7.6904]
+  RMSE: mean=7.6016  fold_std=3.5449  per_fold=[9.1946, 6.5681, 10.4617, 1.1379, 10.6454]
+  MER: mean=0.0732  fold_std=0.0332  per_fold=[0.11, 0.0697, 0.0944, 0.0127, 0.0792]
+  r: mean=-0.2666  fold_std=0.7686  per_fold=[-0.5225, 0.1894, 1.0, -1.0, -1.0]
+
+Summary JSON: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_summary.json
+Results CSV: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_results.csv
+
+============================================================
+Intratest 5-fold CV: BUAA_my_in_100lux
+Started: 2026-05-22 16:54:47
+Subjects: 12 | max_iter: 1000 | batch: 100
+loss_type: DM | seed: 0 | device: cuda:0
+
+[Fold 0] Building indexes...
+  HR augmentation (high end only): r_min=1.0, r_max=2.0, prob=0.5, excluded from aug=set()
+  [AUG DIAGNOSTIC fold 0] checked=200 samples | can_aug_participant=200 | eligible(max_r>1.2)=191 | actually_augmented=93 (46.5%) | mean_max_r=1.878 | mean_W_full=1800
+  r_sample=[1.0, 1.42, 1.79, 1.0, 1.0, 1.54, 1.37, 1.0, 1.36, 1.0, 1.0, 1.67, 1.0, 1.84, 1.0, 1.32, 1.0, 1.27, 1.88, 1.0]
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 0] iter 0/1000 | train=0.9956 src=0.9956 | val=1.0000 | CM=-0.0126 DM=1.4668 TA=0.0442 |  0 hr 00 min
+  [fold 0] iter 200/1000 | train=0.0265 src=0.0265 | val=0.9830 | CM=-0.0127 DM=5.2557 TA=0.0251 |  0 hr 00 min
+  [fold 0] iter 400/1000 | train=0.0124 src=0.0124 | val=0.9907 | CM=-0.0127 DM=5.0148 TA=0.0215 |  0 hr 01 min
+  [fold 0] iter 600/1000 | train=0.0162 src=0.0162 | val=0.9898 | CM=-0.0127 DM=4.3566 TA=0.0271 |  0 hr 02 min
+  [fold 0] iter 800/1000 | train=0.0076 src=0.0076 | val=0.9757 | CM=-0.0127 DM=4.4456 TA=0.0308 |  0 hr 03 min
+  [fold 0] iter 1000/1000 | train=0.0071 src=0.0071 | val=0.9748 | CM=-0.0126 DM=4.1761 TA=0.0261 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold0/feature/training_curve.png
+[Fold 0] ME=17.8528 Std=5.0618 MAE=17.8528 RMSE=18.5565 MER=0.221472 r=0.7317
+
+[Fold 1] Building indexes...
+  HR augmentation (high end only): r_min=1.0, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 1] iter 0/1000 | train=1.0061 src=1.0061 | val=1.0000 | CM=-0.0128 DM=1.4611 TA=0.0459 |  0 hr 00 min
+  [fold 1] iter 200/1000 | train=0.0363 src=0.0363 | val=0.9792 | CM=-0.0127 DM=5.8621 TA=0.0276 |  0 hr 00 min
+  [fold 1] iter 400/1000 | train=0.0169 src=0.0169 | val=0.9566 | CM=-0.0122 DM=4.7338 TA=0.0270 |  0 hr 01 min
+  [fold 1] iter 600/1000 | train=0.0103 src=0.0103 | val=0.9487 | CM=-0.0130 DM=3.9308 TA=0.0288 |  0 hr 02 min
+  [fold 1] iter 800/1000 | train=0.0086 src=0.0086 | val=0.9465 | CM=-0.0128 DM=4.0888 TA=0.0316 |  0 hr 03 min
+  [fold 1] iter 1000/1000 | train=0.0077 src=0.0077 | val=0.9444 | CM=-0.0127 DM=3.7448 TA=0.0290 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold1/feature/training_curve.png
+[Fold 1] ME=26.3763 Std=13.6173 MAE=26.3763 RMSE=29.6840 MER=0.324067 r=0.4672
+
+[Fold 2] Building indexes...
+  HR augmentation (high end only): r_min=1.0, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 2] iter 0/1000 | train=0.9904 src=0.9904 | val=1.0000 | CM=-0.0127 DM=1.2913 TA=0.0488 |  0 hr 00 min
+  [fold 2] iter 200/1000 | train=0.0375 src=0.0375 | val=0.9820 | CM=-0.0128 DM=5.4315 TA=0.0298 |  0 hr 00 min
+  [fold 2] iter 400/1000 | train=0.0160 src=0.0160 | val=0.9866 | CM=-0.0124 DM=4.6975 TA=0.0342 |  0 hr 01 min
+  [fold 2] iter 600/1000 | train=0.0109 src=0.0109 | val=0.9751 | CM=-0.0130 DM=4.1246 TA=0.0355 |  0 hr 02 min
+  [fold 2] iter 800/1000 | train=0.0079 src=0.0079 | val=0.9632 | CM=-0.0133 DM=3.5611 TA=0.0309 |  0 hr 03 min
+  [fold 2] iter 1000/1000 | train=0.0097 src=0.0097 | val=0.9731 | CM=-0.0113 DM=3.5800 TA=0.0293 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold2/feature/training_curve.png
+[Fold 2] ME=5.6992 Std=17.6743 MAE=17.6743 RMSE=18.5704 MER=0.197104 r=-1.0000
+
+[Fold 3] Building indexes...
+  HR augmentation (high end only): r_min=1.0, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 3] iter 0/1000 | train=0.9964 src=0.9964 | val=1.0000 | CM=-0.0124 DM=1.2851 TA=0.0515 |  0 hr 00 min
+  [fold 3] iter 200/1000 | train=0.0643 src=0.0643 | val=1.0220 | CM=-0.0122 DM=5.4789 TA=0.0245 |  0 hr 00 min
+  [fold 3] iter 400/1000 | train=0.0218 src=0.0218 | val=1.0196 | CM=-0.0127 DM=4.3223 TA=0.0270 |  0 hr 01 min
+  [fold 3] iter 600/1000 | train=0.0135 src=0.0135 | val=1.0037 | CM=-0.0126 DM=4.4668 TA=0.0270 |  0 hr 02 min
+  [fold 3] iter 800/1000 | train=0.0098 src=0.0098 | val=0.9908 | CM=-0.0128 DM=4.2012 TA=0.0235 |  0 hr 03 min
+  [fold 3] iter 1000/1000 | train=0.0057 src=0.0057 | val=1.0060 | CM=-0.0113 DM=3.7390 TA=0.0264 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold3/feature/training_curve.png
+[Fold 3] ME=29.4434 Std=5.5481 MAE=29.4434 RMSE=29.9615 MER=0.344942 r=1.0000
+
+[Fold 4] Building indexes...
+  HR augmentation (high end only): r_min=1.0, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 4] iter 0/1000 | train=1.0152 src=1.0152 | val=1.0000 | CM=-0.0127 DM=1.2911 TA=0.0522 |  0 hr 00 min
+  [fold 4] iter 200/1000 | train=0.0344 src=0.0344 | val=0.9354 | CM=-0.0123 DM=6.5161 TA=0.0240 |  0 hr 00 min
+  [fold 4] iter 400/1000 | train=0.0219 src=0.0219 | val=0.8925 | CM=-0.0121 DM=5.9512 TA=0.0245 |  0 hr 01 min
+  [fold 4] iter 600/1000 | train=0.0164 src=0.0164 | val=0.8953 | CM=-0.0123 DM=5.1760 TA=0.0280 |  0 hr 02 min
+  [fold 4] iter 800/1000 | train=0.0088 src=0.0088 | val=0.8763 | CM=-0.0122 DM=5.1298 TA=0.0256 |  0 hr 03 min
+  [fold 4] iter 1000/1000 | train=0.0079 src=0.0079 | val=0.8897 | CM=-0.0114 DM=5.0767 TA=0.0278 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold4/feature/training_curve.png
+[Fold 4] ME=15.2847 Std=10.0937 MAE=15.2847 RMSE=18.3168 MER=0.161147 r=1.0000
+
+============================================================
+AGGREGATE (5-fold CV | BUAA_my_in_100lux):
+  ME: mean=18.9313  fold_std=8.4319  per_fold=[17.8528, 26.3763, 5.6992, 29.4434, 15.2847]
+  Std: mean=10.3990  fold_std=4.8041  per_fold=[5.0618, 13.6173, 17.6743, 5.5481, 10.0937]
+  MAE: mean=21.3263  fold_std=5.5370  per_fold=[17.8528, 26.3763, 17.6743, 29.4434, 15.2847]
+  RMSE: mean=23.0179  fold_std=5.5576  per_fold=[18.5565, 29.684, 18.5704, 29.9615, 18.3168]
+  MER: mean=0.2497  fold_std=0.0721  per_fold=[0.2215, 0.3241, 0.1971, 0.3449, 0.1611]
+  r: mean=0.4398  fold_std=0.7465  per_fold=[0.7317, 0.4672, -1.0, 1.0, 1.0]
+
+Summary JSON: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_summary.json
+Results CSV: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_aug_results.csv
+
+============================================================
+Intratest 5-fold CV: BUAA_my_in_100lux
+Started: 2026-05-22 17:14:02
+Subjects: 12 | max_iter: 1000 | batch: 100
+loss_type: DM | seed: 0 | device: cuda:0
+
+[Fold 0] Building indexes...
+  HR augmentation (both ends): r_min=0.5, r_max=2.0, prob=0.5, excluded from aug=set()
+  [AUG DIAGNOSTIC fold 0] checked=200 samples | can_aug_participant=200 | eligible(max_r>1.2)=191 | actually_augmented=93 (46.5%) | mean_max_r=1.878 | mean_W_full=1800
+  r_sample=[1.0, 1.42, 1.79, 1.0, 1.0, 1.54, 1.37, 1.0, 1.36, 1.0, 1.0, 1.67, 1.0, 1.84, 1.0, 1.32, 1.0, 1.27, 1.88, 1.0]
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 0] iter 0/1000 | train=1.0110 src=1.0110 | val=1.0000 | CM=-0.0124 DM=1.3874 TA=0.0443 |  0 hr 00 min
+  [fold 0] iter 200/1000 | train=0.0473 src=0.0473 | val=0.9700 | CM=-0.0121 DM=6.1072 TA=0.0193 |  0 hr 00 min
+  [fold 0] iter 400/1000 | train=0.0164 src=0.0164 | val=0.9407 | CM=-0.0122 DM=5.5821 TA=0.0215 |  0 hr 01 min
+  [fold 0] iter 600/1000 | train=0.0110 src=0.0110 | val=0.9560 | CM=-0.0117 DM=5.2877 TA=0.0246 |  0 hr 02 min
+  [fold 0] iter 800/1000 | train=0.0103 src=0.0103 | val=0.9367 | CM=-0.0122 DM=5.0630 TA=0.0257 |  0 hr 03 min
+  [fold 0] iter 1000/1000 | train=0.0092 src=0.0092 | val=0.9374 | CM=-0.0122 DM=5.0125 TA=0.0235 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold0/feature/training_curve.png
+[Fold 0] ME=2.0966 Std=17.2373 MAE=15.2252 RMSE=17.3643 MER=0.187837 r=0.6040
+
+[Fold 1] Building indexes...
+  HR augmentation (both ends): r_min=0.5, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 9 subjects, 1152 samples
+  test:  3 subjects, 384 samples
+  [fold 1] iter 0/1000 | train=0.9996 src=0.9996 | val=1.0000 | CM=-0.0119 DM=1.3734 TA=0.0461 |  0 hr 00 min
+  [fold 1] iter 200/1000 | train=0.0454 src=0.0454 | val=1.0030 | CM=-0.0122 DM=5.9006 TA=0.0236 |  0 hr 00 min
+  [fold 1] iter 400/1000 | train=0.0172 src=0.0172 | val=0.9821 | CM=-0.0126 DM=5.6133 TA=0.0264 |  0 hr 01 min
+  [fold 1] iter 600/1000 | train=0.0116 src=0.0116 | val=0.9704 | CM=-0.0127 DM=4.8246 TA=0.0301 |  0 hr 02 min
+  [fold 1] iter 800/1000 | train=0.0103 src=0.0103 | val=0.9695 | CM=-0.0124 DM=4.7126 TA=0.0301 |  0 hr 03 min
+  [fold 1] iter 1000/1000 | train=0.0098 src=0.0098 | val=0.9678 | CM=-0.0123 DM=4.8743 TA=0.0265 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold1/feature/training_curve.png
+[Fold 1] ME=26.9989 Std=17.8333 MAE=26.9989 RMSE=32.3569 MER=0.331106 r=0.4055
+
+[Fold 2] Building indexes...
+  HR augmentation (both ends): r_min=0.5, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 2] iter 0/1000 | train=0.9962 src=0.9962 | val=1.0000 | CM=-0.0128 DM=1.2755 TA=0.0520 |  0 hr 00 min
+  [fold 2] iter 200/1000 | train=0.0289 src=0.0289 | val=0.9647 | CM=-0.0120 DM=4.8383 TA=0.0247 |  0 hr 00 min
+  [fold 2] iter 400/1000 | train=0.0150 src=0.0150 | val=0.9651 | CM=-0.0120 DM=4.7839 TA=0.0328 |  0 hr 01 min
+  [fold 2] iter 600/1000 | train=0.0108 src=0.0108 | val=0.9826 | CM=-0.0122 DM=4.7545 TA=0.0344 |  0 hr 02 min
+  [fold 2] iter 800/1000 | train=0.0108 src=0.0108 | val=0.9752 | CM=-0.0120 DM=4.8973 TA=0.0300 |  0 hr 03 min
+  [fold 2] iter 1000/1000 | train=0.0086 src=0.0086 | val=0.9727 | CM=-0.0112 DM=4.2638 TA=0.0303 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold2/feature/training_curve.png
+[Fold 2] ME=5.5069 Std=24.9527 MAE=24.9527 RMSE=25.5531 MER=0.276618 r=-1.0000
+
+[Fold 3] Building indexes...
+  HR augmentation (both ends): r_min=0.5, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 3] iter 0/1000 | train=1.0038 src=1.0038 | val=1.0000 | CM=-0.0125 DM=1.3200 TA=0.0509 |  0 hr 00 min
+  [fold 3] iter 200/1000 | train=0.0496 src=0.0496 | val=0.9605 | CM=-0.0123 DM=5.7933 TA=0.0152 |  0 hr 00 min
+  [fold 3] iter 400/1000 | train=0.0289 src=0.0289 | val=0.9844 | CM=-0.0120 DM=5.9168 TA=0.0183 |  0 hr 01 min
+  [fold 3] iter 600/1000 | train=0.0224 src=0.0224 | val=0.9789 | CM=-0.0124 DM=5.8864 TA=0.0199 |  0 hr 02 min
+  [fold 3] iter 800/1000 | train=0.0230 src=0.0230 | val=0.9816 | CM=-0.0121 DM=5.7977 TA=0.0186 |  0 hr 03 min
+  [fold 3] iter 1000/1000 | train=0.0194 src=0.0194 | val=0.9973 | CM=-0.0112 DM=4.9357 TA=0.0208 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold3/feature/training_curve.png
+[Fold 3] ME=-21.5744 Std=0.5630 MAE=21.5744 RMSE=21.5817 MER=0.253130 r=1.0000
+
+[Fold 4] Building indexes...
+  HR augmentation (both ends): r_min=0.5, r_max=2.0, prob=0.5, excluded from aug=set()
+  train: 10 subjects, 1280 samples
+  test:  2 subjects, 256 samples
+  [fold 4] iter 0/1000 | train=0.9965 src=0.9965 | val=1.0000 | CM=-0.0125 DM=1.3435 TA=0.0524 |  0 hr 00 min
+  [fold 4] iter 200/1000 | train=0.0686 src=0.0686 | val=0.9934 | CM=-0.0128 DM=4.1454 TA=0.0242 |  0 hr 00 min
+  [fold 4] iter 400/1000 | train=0.0142 src=0.0142 | val=0.9794 | CM=-0.0125 DM=4.2005 TA=0.0282 |  0 hr 01 min
+  [fold 4] iter 600/1000 | train=0.0143 src=0.0143 | val=0.9791 | CM=-0.0120 DM=4.1359 TA=0.0319 |  0 hr 02 min
+  [fold 4] iter 800/1000 | train=0.0099 src=0.0099 | val=0.9588 | CM=-0.0122 DM=3.8545 TA=0.0284 |  0 hr 03 min
+  [fold 4] iter 1000/1000 | train=0.0094 src=0.0094 | val=0.9635 | CM=-0.0114 DM=3.3956 TA=0.0301 |  0 hr 03 min
+  Saved training curve: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold4/feature/training_curve.png
+[Fold 4] ME=-1.0849 Std=17.7841 MAE=17.7841 RMSE=17.8172 MER=0.198049 r=1.0000
+
+============================================================
+AGGREGATE (5-fold CV | BUAA_my_in_100lux):
+  ME: mean=2.3886  fold_std=15.5033  per_fold=[2.0966, 26.9989, 5.5069, -21.5744, -1.0849]
+  Std: mean=15.6741  fold_std=8.0746  per_fold=[17.2373, 17.8333, 24.9527, 0.563, 17.7841]
+  MAE: mean=21.3071  fold_std=4.3625  per_fold=[15.2252, 26.9989, 24.9527, 21.5744, 17.7841]
+  RMSE: mean=22.9346  fold_std=5.5621  per_fold=[17.3643, 32.3569, 25.5531, 21.5817, 17.8172]
+  MER: mean=0.2493  fold_std=0.0526  per_fold=[0.1878, 0.3311, 0.2766, 0.2531, 0.198]
+  r: mean=0.4019  fold_std=0.7378  per_fold=[0.604, 0.4055, -1.0, 1.0, 1.0]
+
+Summary JSON: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_summary.json
+Results CSV: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_BUAA_my_in_100lux_wl0.0_aug_both_results.csv

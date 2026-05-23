@@ -1,0 +1,190 @@
+{
+  "dataset": "BUAA_my_in_100lux",
+  "folds": 5,
+  "weight_cl": 0.0,
+  "n_subjects": 12,
+  "args": {
+    "dataset": "BUAA_my_in_100lux",
+    "folds": 5,
+    "seed": 0,
+    "GPU": "0",
+    "num_workers": 2,
+    "batchsize": 100,
+    "lr": 0.001,
+    "max_iter": 1000,
+    "frames_num": 512,
+    "stmap_name": "STMap_RGB.png",
+    "loss_type": "DM",
+    "temporal_aug_rate": 0.1,
+    "spatial_aug_rate": 0.5,
+    "grad_clip": 5.0,
+    "weight_cl": 0.0,
+    "k1": 1.0,
+    "k2": 0.1,
+    "k3": 1.0,
+    "k4": 0.1,
+    "k5": 1.0,
+    "k6": 0.1,
+    "k7": 0.1,
+    "k8": 0.1,
+    "epochs": 262144,
+    "use_infonce": false,
+    "exclude_participants": "",
+    "session_filter": "100.0",
+    "hr_aug_max": 2.0,
+    "hr_aug_min": 0.5,
+    "hr_aug_prob": 0.5,
+    "hr_aug_exclude": "",
+    "run_tag": "aug_both"
+  },
+  "fold_metrics": [
+    {
+      "ME": 2.0965576171875,
+      "Std": 17.237252596953187,
+      "MAE": 15.2252197265625,
+      "RMSE": 17.364286076120617,
+      "MER": 0.1878372764273882,
+      "r": 0.6039847546563727,
+      "fold": 0,
+      "weight_cl": 0.0,
+      "train_subjects": 9,
+      "test_subjects": 3,
+      "train_samples": 1152,
+      "test_samples": 384,
+      "wave_sort": "/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold0",
+      "dataset": "BUAA_my_in_100lux"
+    },
+    {
+      "ME": 26.9989013671875,
+      "Std": 17.833292959310903,
+      "MAE": 26.9989013671875,
+      "RMSE": 32.35686963857485,
+      "MER": 0.33110649583940766,
+      "r": 0.4054754714609843,
+      "fold": 1,
+      "weight_cl": 0.0,
+      "train_subjects": 9,
+      "test_subjects": 3,
+      "train_samples": 1152,
+      "test_samples": 384,
+      "wave_sort": "/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold1",
+      "dataset": "BUAA_my_in_100lux"
+    },
+    {
+      "ME": 5.50689697265625,
+      "Std": 24.95269775390625,
+      "MAE": 24.95269775390625,
+      "RMSE": 25.55314147938074,
+      "MER": 0.27661811639073924,
+      "r": -1.0,
+      "fold": 2,
+      "weight_cl": 0.0,
+      "train_subjects": 10,
+      "test_subjects": 2,
+      "train_samples": 1280,
+      "test_samples": 256,
+      "wave_sort": "/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold2",
+      "dataset": "BUAA_my_in_100lux"
+    },
+    {
+      "ME": -21.57440185546875,
+      "Std": 0.56304931640625,
+      "MAE": 21.57440185546875,
+      "RMSE": 21.58174784288703,
+      "MER": 0.2531295429856453,
+      "r": 1.0,
+      "fold": 3,
+      "weight_cl": 0.0,
+      "train_subjects": 10,
+      "test_subjects": 2,
+      "train_samples": 1280,
+      "test_samples": 256,
+      "wave_sort": "/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold3",
+      "dataset": "BUAA_my_in_100lux"
+    },
+    {
+      "ME": -1.08489990234375,
+      "Std": 17.78411865234375,
+      "MAE": 17.78411865234375,
+      "RMSE": 17.817179463617308,
+      "MER": 0.19804911672907416,
+      "r": 0.9999999999999998,
+      "fold": 4,
+      "weight_cl": 0.0,
+      "train_subjects": 10,
+      "test_subjects": 2,
+      "train_samples": 1280,
+      "test_samples": 256,
+      "wave_sort": "/home/psa14/projects/NEST-rPPG/NEST-rPPG/Wave_sort/cv_BUAA_my_in_100lux/cv_BUAA_my_in_100lux_wl0.0_fold4",
+      "dataset": "BUAA_my_in_100lux"
+    }
+  ],
+  "summary": {
+    "ME": {
+      "mean": 2.38861083984375,
+      "fold_std": 15.503332916782895,
+      "per_fold": [
+        2.0965576171875,
+        26.9989013671875,
+        5.50689697265625,
+        -21.57440185546875,
+        -1.08489990234375
+      ]
+    },
+    "Std": {
+      "mean": 15.674082255784068,
+      "fold_std": 8.074576992381667,
+      "per_fold": [
+        17.237252596953187,
+        17.833292959310903,
+        24.95269775390625,
+        0.56304931640625,
+        17.78411865234375
+      ]
+    },
+    "MAE": {
+      "mean": 21.30706787109375,
+      "fold_std": 4.362547450743465,
+      "per_fold": [
+        15.2252197265625,
+        26.9989013671875,
+        24.95269775390625,
+        21.57440185546875,
+        17.78411865234375
+      ]
+    },
+    "RMSE": {
+      "mean": 22.93464490011611,
+      "fold_std": 5.562059397865648,
+      "per_fold": [
+        17.364286076120617,
+        32.35686963857485,
+        25.55314147938074,
+        21.58174784288703,
+        17.817179463617308
+      ]
+    },
+    "MER": {
+      "mean": 0.2493481096744509,
+      "fold_std": 0.052645143169050994,
+      "per_fold": [
+        0.1878372764273882,
+        0.33110649583940766,
+        0.27661811639073924,
+        0.2531295429856453,
+        0.19804911672907416
+      ]
+    },
+    "r": {
+      "mean": 0.40189204522347133,
+      "fold_std": 0.737783418320621,
+      "per_fold": [
+        0.6039847546563727,
+        0.4054754714609843,
+        -1.0,
+        1.0,
+        0.9999999999999998
+      ]
+    }
+  }
+}

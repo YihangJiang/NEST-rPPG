@@ -77,6 +77,9 @@ def parse_args():
     parser.add_argument('--use_infonce', action='store_true', default=False)
     parser.add_argument('--exclude_participants', type=str, default='',
                         help='Comma-separated participant IDs to exclude (e.g. "07,08")')
+    parser.add_argument('--session_filter', type=str, default='',
+                        help='Keep only session folders whose name contains this substring '
+                             '(e.g. "100.0" to keep only 100 lux BUAA sessions)')
     return parser.parse_args()
 
 
@@ -417,6 +420,11 @@ def main():
         before = len(subjects)
         subjects = [s for s in subjects if get_participant_id(s) not in excluded]
         print(f"  Excluded participants {excluded}: {before} -> {len(subjects)} subjects")
+
+    if args.session_filter:
+        before = len(subjects)
+        subjects = [s for s in subjects if args.session_filter in s]
+        print(f"  Session filter '{args.session_filter}': {before} -> {len(subjects)} subjects")
 
     device = torch.device('cuda:' + args.GPU if torch.cuda.is_available() else 'cpu')
 

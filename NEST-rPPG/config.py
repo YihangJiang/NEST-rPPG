@@ -72,6 +72,7 @@ FILEA_NAME = {
     'UBFC_my_eye': ['STMap_my/UBFC_my_eye', 'UBFC_my_eye', 'STMap_RGB'],
     'BUAA_my_rm': ['STMap_my/BUAA_my_rm', 'BUAA_my_rm', 'STMap_RGB'],
     'BUAA_my_in': ['STMap_my/BUAA_my_in', 'BUAA_my_in', 'STMap_RGB'],
+    'BUAA_my_in_100lux': ['STMap_my/BUAA_my_in', 'BUAA_my_in', 'STMap_RGB'],
     'BUAA_my_eye': ['STMap_my/BUAA_my_eye', 'BUAA_my_eye', 'STMap_RGB'],
     # Row-analysis variant for PURE (still under STMap/ by design)
     'PURE_trans_row0': ['STMap/PURE_trans_row0', 'PURE_trans_row0', 'STMap'],
