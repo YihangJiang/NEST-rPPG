@@ -1,0 +1,17 @@
+{
+  "save_path": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/BUAA_my_in/rPPGNet_BUAA_my_in_srcUBFC_my_in_uiTrue",
+  "source_domain": "PURE_my_rm",
+  "target_domain": "BUAA_my_in",
+  "loss_type": "DM",
+  "result": {
+    "HR": {
+      "ME": 7.751890956914721,
+      "Std": 12.188085400393973,
+      "MAE": 9.16249731259763,
+      "RMSE": 14.444418961494884,
+      "MER": 0.12347824226787633,
+      "r": -0.09512773145289767
+    }
+  },
+  "regions": "all"
+}

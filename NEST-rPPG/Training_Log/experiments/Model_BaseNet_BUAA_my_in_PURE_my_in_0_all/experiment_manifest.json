@@ -1,0 +1,22 @@
+{
+  "model_name": "BaseNet",
+  "source_domain": "BUAA_my_in",
+  "target_domain": "PURE_my_in",
+  "weight": 0.0,
+  "regions": "all",
+  "wave_sort_source": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/PURE_my_in/rPPGNet_PURE_my_in_srcBUAA_my_in_uiTrue",
+  "feature_source": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/PURE_my_in/rPPGNet_PURE_my_in_srcBUAA_my_in_uiTrue/feature",
+  "experiment_dir": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/experiments/Model_BaseNet_BUAA_my_in_PURE_my_in_0_all",
+  "summary_csv": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/regions_eval_summary.csv",
+  "last_train_regions_meta": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/last_train_regions_meta.json",
+  "config_eval_save_path": "/home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/BUAA_my_in/rPPGNet_BUAA_my_in_srcPURE_my_rm_lossDM",
+  "loss_type": "DM",
+  "result_HR": {
+    "ME": 10.778183182437509,
+    "Std": 20.45097455835383,
+    "MAE": 20.137221738404705,
+    "RMSE": 23.117343988888827,
+    "MER": 0.28635271634832826,
+    "r": 0.12076577942494066
+  }
+}

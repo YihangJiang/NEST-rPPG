@@ -19,9 +19,13 @@ from utils.eval_utils import (
     plot_subject_error_bars,
     write_segment_errors_csv,
     append_regions_eval_summary_csv,
+    snapshot_regions_experiment_outputs,
     plot_worst_subject_from_segment_csv,
     plot_worst_subject_signals,
 )
+
+# Architecture label for experiment folder naming (matches train_regions.py default).
+MODEL_CLASS_NAME = "BaseNet"
 
 
 def _parse_train_regions_run_dir_name(run_dir_basename: str):
@@ -156,15 +160,36 @@ append_regions_eval_summary_csv(
 )
 print(f"Appended regions eval summary row: {summary_csv}")
 
+experiments_root = os.path.join(config.RESULT_LOG_DIR, "experiments")
+exp_dir = snapshot_regions_experiment_outputs(
+    experiments_root,
+    model_name=MODEL_CLASS_NAME,
+    source_domain=src_for_csv,
+    target_domain=tgt_for_csv,
+    weight=weight_for_csv,
+    regions=regions_for_csv,
+    wave_sort_dir=save_path,
+    feature_dir=feature_dir,
+    extra_manifest={
+        "summary_csv": summary_csv,
+        "last_train_regions_meta": meta_path,
+        "config_eval_save_path": config.EVAL_SAVE_PATH,
+        "loss_type": config.LOSS_TYPE,
+        "result_HR": result.get("HR"),
+    },
+)
+print(f"Saved experiment snapshot to: {exp_dir}")
+
 # Print table: ME, Std, MAE, RMSE, MER, Pearson r
 print(f"Source domain: {config.SRC_DOMAIN}")
 print(f"Target domain: {config.TGT_DOMAIN}")
-print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER\t\tr")
+print("Feature    \tME\t\tStd\t\tMAE\t\tMAE_std\t\tRMSE\t\tRMSE_std\tMER\t\tr")
 print("-" * 90)
 for name, metrics in result.items():
     print(
         f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-        f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}\t{metrics['r']:.6f}"
+        f"{metrics.get('MAE_std', float('nan')):.6f}\t{metrics['RMSE']:.6f}\t"
+        f"{metrics.get('RMSE_std', float('nan')):.6f}\t{metrics['MER']:.6f}\t{metrics['r']:.6f}"
     )
 
 # %%

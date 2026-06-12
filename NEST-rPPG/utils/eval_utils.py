@@ -13,6 +13,8 @@ Functions moved from eval_from_bvp.py so they can be reused:
 """
 import os
 import csv
+import json
+import shutil
 from typing import List, Optional, Dict, Any, Tuple
 
 import numpy as np
@@ -59,25 +61,30 @@ def hr_from_fft(signal_1d: np.ndarray, fs: float = FS_BVP) -> float:
 
 
 def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
-    """Matches MyEval.m: me, E_std, mae, rmse, mer, p (Pearson r)."""
+    """Matches MyEval.m + extra spread stats: me, E_std, mae, rmse, mae_std, rmse_std, mer, p."""
     hr_pr = np.asarray(hr_pr).ravel()
     hr_gt = np.asarray(hr_gt).ravel()
     n = len(hr_pr)
     if n != len(hr_gt) or n == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     temp = hr_pr - hr_gt
     valid = ~(np.isnan(hr_pr) | np.isnan(hr_gt))
     n_valid = np.sum(valid)
     if n_valid == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
     # ME: mean error
     me = float(np.nanmean(temp)) if n_valid > 0 else np.nan
     # E_std: std of error
     e_std = float(np.nanstd(temp, ddof=0)) if n_valid > 1 else (0.0 if n_valid == 1 else np.nan)
     # MAE: mean absolute error (use nanmean to handle NaNs properly)
-    mae = float(np.nanmean(np.abs(temp))) if n_valid > 0 else np.nan
+    abs_err = np.abs(temp)
+    mae = float(np.nanmean(abs_err)) if n_valid > 0 else np.nan
     # RMSE: root mean squared error
-    rmse = float(np.sqrt(np.nanmean(temp * temp))) if n_valid > 0 else np.nan
+    sq_err = temp * temp
+    rmse = float(np.sqrt(np.nanmean(sq_err))) if n_valid > 0 else np.nan
+    # Requested: std across subjects for absolute error and root-squared error.
+    mae_std = float(np.nanstd(abs_err, ddof=0)) if n_valid > 1 else (0.0 if n_valid == 1 else np.nan)
+    rmse_std = float(np.nanstd(np.sqrt(sq_err), ddof=0)) if n_valid > 1 else (0.0 if n_valid == 1 else np.nan)
     # MER: mean absolute relative error
     mer = np.abs(temp) / (hr_gt + 0.01)
     mer = float(np.nanmean(mer)) if n_valid > 0 else np.nan
@@ -86,7 +93,7 @@ def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
         p = np.nan
     else:
         p = float(np.corrcoef(hr_pr[valid], hr_gt[valid])[0, 1])
-    return me, e_std, mae, rmse, mer, p
+    return me, e_std, mae, rmse, mae_std, rmse_std, mer, p
 
 
 def run_eval(
@@ -175,8 +182,19 @@ def run_eval(
 
     hr_pr = np.array(hr_pr_per_subject)
     hr_gt = np.array(hr_gt_per_subject)
-    me, e_std, mae, rmse, mer, p = my_eval(hr_pr, hr_gt)
-    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse, "MER": mer, "r": p}}
+    me, e_std, mae, rmse, mae_std, rmse_std, mer, p = my_eval(hr_pr, hr_gt)
+    result = {
+        "HR": {
+            "ME": me,
+            "Std": e_std,
+            "MAE": mae,
+            "RMSE": rmse,
+            "MAE_std": mae_std,
+            "RMSE_std": rmse_std,
+            "MER": mer,
+            "r": p,
+        }
+    }
     if return_details:
         details["hr_gt_subject_mean_bpm"] = hr_gt
         details["hr_pr_subject_mean_bpm"] = hr_pr
@@ -337,6 +355,100 @@ def append_regions_eval_summary_csv(
 
     df.to_csv(csv_path, index=False)
     return csv_path
+
+
+def regions_experiment_dir_name(
+    *,
+    model_name: str,
+    source_domain: str,
+    target_domain: str,
+    weight: float,
+    regions: str,
+) -> str:
+    """
+    Folder basename aligned with regions_eval_summary.csv training columns:
+    Model_<Source Domain>_<Target domain>_<Weight>_<Regions>
+    """
+    w = float(weight)
+    wpart = str(int(w)) if abs(w - round(w)) < 1e-9 else repr(w)
+    safe_regions = str(regions).strip().replace(" ", "_")
+    parts = [
+        "Model",
+        str(model_name).strip(),
+        str(source_domain).strip(),
+        str(target_domain).strip(),
+        wpart,
+        safe_regions,
+    ]
+    return "_".join(parts)
+
+
+def snapshot_regions_experiment_outputs(
+    experiments_root: str,
+    *,
+    model_name: str,
+    source_domain: str,
+    target_domain: str,
+    weight: float,
+    regions: str,
+    wave_sort_dir: str,
+    feature_dir: str,
+    extra_manifest: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Copy Wave_sort *.mat pairs and eval feature artifacts into one experiment folder.
+
+    Layout:
+      <experiments_root>/Model_<src>_<tgt>_<weight>_<regions>/
+        wave_sort/   (all .mat from wave_sort_dir root — gt/pr segment mats)
+        feature/     (segment_errors.csv, plots, eval_result.json, ...)
+        experiment_manifest.json
+    """
+    experiments_root = os.path.abspath(experiments_root)
+    wave_sort_dir = os.path.abspath(wave_sort_dir)
+    feature_dir = os.path.abspath(feature_dir)
+
+    exp_name = regions_experiment_dir_name(
+        model_name=model_name,
+        source_domain=source_domain,
+        target_domain=target_domain,
+        weight=weight,
+        regions=regions,
+    )
+    exp_dir = os.path.join(experiments_root, exp_name)
+    if os.path.isdir(exp_dir):
+        shutil.rmtree(exp_dir)
+    ws_dest = os.path.join(exp_dir, "wave_sort")
+    ft_dest = os.path.join(exp_dir, "feature")
+    os.makedirs(ws_dest, exist_ok=True)
+
+    for fname in sorted(os.listdir(wave_sort_dir)):
+        if not fname.endswith(".mat"):
+            continue
+        shutil.copy2(os.path.join(wave_sort_dir, fname), os.path.join(ws_dest, fname))
+
+    if os.path.isdir(feature_dir):
+        shutil.copytree(feature_dir, ft_dest)
+    else:
+        os.makedirs(ft_dest, exist_ok=True)
+
+    manifest: Dict[str, Any] = {
+        "model_name": model_name,
+        "source_domain": source_domain,
+        "target_domain": target_domain,
+        "weight": float(weight),
+        "regions": str(regions),
+        "wave_sort_source": wave_sort_dir,
+        "feature_source": feature_dir,
+        "experiment_dir": exp_dir,
+    }
+    if extra_manifest:
+        manifest.update(extra_manifest)
+
+    with open(os.path.join(exp_dir, "experiment_manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return exp_dir
 
 
 def plot_worst_subject_from_segment_csv(

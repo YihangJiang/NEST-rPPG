@@ -1,6 +1,6 @@
 {
   "source_domain": "PURE_my_in",
   "target_domain": "UBFC_my_in",
-  "weight_info": 0.03,
+  "weight_info": 0.0,
   "regions": "all"
 }
