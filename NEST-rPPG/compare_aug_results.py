@@ -152,7 +152,9 @@ def main():
         print_comparison(dataset, baseline_df, aug_df, args.tag)
 
     if results:
-        out_path = os.path.join(config.RESULT_LOG_DIR, f'comparison_baseline_vs_{args.tag}.png')
+        suffix = '_' + args.datasets.replace(',', '_') if args.datasets else ''
+        out_path = os.path.join(config.RESULT_LOG_DIR,
+                                f'comparison_baseline_vs_{args.tag}{suffix}.png')
         make_comparison_plot(results, args.tag, out_path)
 
 
