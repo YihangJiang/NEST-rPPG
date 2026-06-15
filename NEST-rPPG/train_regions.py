@@ -30,6 +30,7 @@ import MyLoss
 import model
 from utils.core import Logger, time_to_str, get_args
 import utils.train_utils as train_utils
+import utils.mlflow_utils as mlflow_utils
 
 import config
 
@@ -352,6 +353,29 @@ log.write("  Source samples:    %s  (target: %d)\n" % (total_src_samples, len(ta
 log.write("  Log file:          %s\n" % log_path)
 log.write("=" * 60 + "\n\n")
 
+mlflow_utils.setup(
+    args,
+    experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
+    run_name=rPPGNet_name,
+    tags={'script': 'train_regions', 'rPPGNet_name': rPPGNet_name},
+)
+mlflow_utils.log_params({
+    'source_domain': source_domain,
+    'target_domain': tgt_domain,
+    'pos_domain': pos_domain,
+    'neg_domain': neg_domain,
+    'use_infonce': bool(getattr(args, 'use_infonce', False)),
+    'weight_info': float(getattr(args, 'weight_info', 0.0)),
+    'regions': str(getattr(args, 'regions', 'all')),
+    'loss_type': getattr(args, 'loss_type', config.LOSS_TYPE),
+    'lr': args.lr,
+    'batchsize': batch_size,
+    'max_iter': args.max_iter,
+    'frames_num': frames_num,
+    'seed': args.seed,
+    'grad_clip': float(args.grad_clip),
+})
+
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
 BaseNet.train()
@@ -506,6 +530,7 @@ for iter_num in range(max_iter + 1):
 
     if torch.sum(torch.isnan(loss)) > 0:
         print('Nan')
+        mlflow_utils.log_params({'stopped_early': True})
         break
     loss.backward()
     # Prevent exploding gradients -> NaNs in decoder output (bvp_pre)
@@ -525,6 +550,15 @@ for iter_num in range(max_iter + 1):
         )
         log.write(log_line)
         log.write('\n')
+        mlflow_utils.log_metrics({
+            'loss': float(loss.data.cpu().numpy()),
+            'src_loss': float(src_loss.data.cpu().numpy()),
+            'loss_CM': float(loss_CM.data.cpu().numpy()),
+            'loss_DM': float(loss_DM.data.cpu().numpy()),
+            'loss_TA': float(loss_TA.data.cpu().numpy()),
+            'align_pos_loss': float(align_pos_loss.data.cpu().numpy()),
+            'elapsed_min': float((timer() - start) / 60.0),
+        }, step=iter_num)
 
 print("Training finished.")
 
@@ -591,9 +625,9 @@ try:
 except Exception as e:
     print("Warning: failed to write last_wave_sort_path.txt:", repr(e))
 
+meta_path = os.path.join(config.RESULT_LOG_DIR, "last_train_regions_meta.json")
 try:
     os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
-    meta_path = os.path.join(config.RESULT_LOG_DIR, "last_train_regions_meta.json")
     with open(meta_path, "w") as f:
         json.dump(
             {
@@ -608,5 +642,8 @@ try:
     print("Saved train_regions meta to:", meta_path)
 except Exception as e:
     print("Warning: failed to write last_train_regions_meta.json:", repr(e))
+
+mlflow_utils.log_artifacts([log_path, model_path, meta_path])
+mlflow_utils.end_run()
 
 # %%

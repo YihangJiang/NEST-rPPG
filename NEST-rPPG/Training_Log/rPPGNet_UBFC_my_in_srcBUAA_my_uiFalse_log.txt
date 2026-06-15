@@ -1,0 +1,29 @@
+
+----------------------------------------------- [START 2026-06-14 22:15:49] ---------------------------------------------------
+
+TRAINING CONFIG (whole-face train / infraorbital infer)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Source domain:     BUAA_my
+  Source index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/BUAA_my
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    11082  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcBUAA_my_uiFalse_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.5083869 |BUAA_my : 0.99208724 |CM : -0.010396026 |DM : 0.51629966 |TA : 0.06483728 | 0 hr 00 min
+Train Inter:100 | loss:  1.0576985 |BUAA_my : 1.0088118 |CM : -0.011539112 |DM : 0.04888664 |TA : 0.11261612 | 0 hr 00 min
+Train Inter:200 | loss:  1.0202097 |BUAA_my : 0.98830676 |CM : -0.012017578 |DM : 0.031902935 |TA : 0.13876504 | 0 hr 00 min
+Train Inter:300 | loss:  1.0054443 |BUAA_my : 0.9914268 |CM : -0.012153577 |DM : 0.014017481 |TA : 0.1433754 | 0 hr 01 min
+Train Inter:400 | loss:  1.0052152 |BUAA_my : 0.99188536 |CM : -0.012274375 |DM : 0.013329762 |TA : 0.14743555 | 0 hr 01 min
+Train Inter:500 | loss:  1.0080006 |BUAA_my : 0.99798995 |CM : -0.011982133 |DM : 0.010010623 |TA : 0.14536518 | 0 hr 01 min
+Train Inter:600 | loss:  1.0130997 |BUAA_my : 0.9974557 |CM : -0.011703172 |DM : 0.015644008 |TA : 0.1449737 | 0 hr 02 min
+Train Inter:700 | loss:  1.0761055 |BUAA_my : 0.99120927 |CM : -0.01223126 |DM : 0.084896155 |TA : 0.14877093 | 0 hr 02 min
+Train Inter:800 | loss:  1.0286162 |BUAA_my : 0.99500006 |CM : -0.012388198 |DM : 0.03361612 |TA : 0.15413833 | 0 hr 02 min
+Train Inter:900 | loss:  1.0549258 |BUAA_my : 1.0123018 |CM : -0.012280333 |DM : 0.042624015 |TA : 0.14259142 | 0 hr 03 min
+Train Inter:1000 | loss:  0.9705545 |BUAA_my : 0.9522805 |CM : -0.012202523 |DM : 0.01827397 |TA : 0.14466465 | 0 hr 03 min

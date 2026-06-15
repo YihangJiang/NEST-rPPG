@@ -22,6 +22,7 @@ from utils.eval_utils import (
     plot_worst_subject_from_segment_csv,
     plot_worst_subject_signals,
 )
+import utils.mlflow_utils as mlflow_utils
 
 
 def _parse_train_regions_run_dir_name(run_dir_basename: str):
@@ -155,6 +156,32 @@ append_regions_eval_summary_csv(
     result=result,
 )
 print(f"Appended regions eval summary row: {summary_csv}")
+
+if mlflow_utils.resume_run():
+    hr_metrics = result.get("HR", {})
+    mlflow_utils.log_metrics({
+        'eval_ME': float(hr_metrics.get('ME', 0.0)),
+        'eval_Std': float(hr_metrics.get('Std', 0.0)),
+        'eval_MAE': float(hr_metrics.get('MAE', 0.0)),
+        'eval_RMSE': float(hr_metrics.get('RMSE', 0.0)),
+        'eval_MER': float(hr_metrics.get('MER', 0.0)),
+        'eval_r': float(hr_metrics.get('r', 0.0)),
+    })
+    mlflow_utils.log_params({
+        'eval_source_domain': src_for_csv,
+        'eval_target_domain': tgt_for_csv,
+        'eval_weight_info': weight_for_csv,
+        'eval_regions': regions_for_csv,
+    })
+    mlflow_utils.log_artifacts([
+        json_path,
+        csv_path,
+        bar_path,
+        worst_plot_path,
+        worst_signals_path,
+    ])
+    mlflow_utils.end_run()
+    print("Logged eval metrics to MLflow run.")
 
 # Print table: ME, Std, MAE, RMSE, MER, Pearson r
 print(f"Source domain: {config.SRC_DOMAIN}")

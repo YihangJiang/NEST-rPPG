@@ -129,6 +129,16 @@ def get_args():
     parser.add_argument('--regions', dest='regions', type=str, default='all',
                         choices=['all', 'neg', 'pos'],
                         help='InfoNCE logits source: all (pos+neg), neg-only, or pos-only')
+
+    # MLflow experiment tracking
+    parser.add_argument('--mlflow', action='store_true',
+                        help='Enable MLflow logging (also set MLFLOW_ENABLED=1)')
+    parser.add_argument('--mlflow-experiment', dest='mlflow_experiment', type=str, default=None,
+                        help='MLflow experiment name (default: config.MLFLOW_EXPERIMENT_NAME)')
+    parser.add_argument('--mlflow-run-name', dest='mlflow_run_name', type=str, default=None,
+                        help='MLflow run name (default: rPPGNet run name)')
+    parser.add_argument('--mlflow-tracking-uri', dest='mlflow_tracking_uri', type=str, default=None,
+                        help='MLflow tracking URI (default: config.MLFLOW_TRACKING_URI)')
     return parser.parse_args()
 
 def MyEval(HR_pr, HR_rel):

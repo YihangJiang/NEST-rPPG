@@ -35,6 +35,14 @@ RESULT_LOG_DIR = os.path.join(BASE_DIR, 'Training_Log')
 WAVE_SORT_ROOT = os.path.join(BASE_DIR, 'Wave_sort')
 MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
+# MLflow (override via MLFLOW_TRACKING_URI / MLFLOW_EXPERIMENT_NAME env vars)
+MLFLOW_ARTIFACT_ROOT = os.path.join(RESULT_LOG_DIR, 'mlruns')
+MLFLOW_TRACKING_URI = os.environ.get(
+    'MLFLOW_TRACKING_URI',
+    'file://' + MLFLOW_ARTIFACT_ROOT,
+)
+MLFLOW_EXPERIMENT_NAME = os.environ.get('MLFLOW_EXPERIMENT_NAME', 'nest-rppg')
+
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
 TGT_DOMAIN = 'BUAA_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
