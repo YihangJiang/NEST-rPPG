@@ -110,3 +110,32 @@ Train Inter:700 | loss:  0.08750952 |PURE_my : 0.071765065 |CM : -0.0116051985 |
 Train Inter:800 | loss:  0.06892347 |PURE_my : 0.06532669 |CM : -0.011066016 |DM : 0.0035967855 |TA : 0.13584352 | 0 hr 02 min
 Train Inter:900 | loss:  0.061125055 |PURE_my : 0.054540575 |CM : -0.010993819 |DM : 0.0065844795 |TA : 0.12825882 | 0 hr 03 min
 Train Inter:1000 | loss:  0.07802625 |PURE_my : 0.06911355 |CM : -0.010287125 |DM : 0.008912694 |TA : 0.13411862 | 0 hr 03 min
+
+----------------------------------------------- [START 2026-06-15 10:55:32] ---------------------------------------------------
+
+TRAINING CONFIG (whole-face train / infraorbital infer)
+  Target domain:     UBFC_my_in
+  Target index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/UBFC_my_in
+  Source domain:     PURE_my
+  Source index:      /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/STMap_my/STMap_Index/PURE_my
+  Batch size:        100
+  Max iterations:    1000
+  Frames per clip:   256
+  Loss type:         DM
+  Device:            cuda:0
+  Model:             BaseNet
+  Source samples:    10786  (target: 6690)
+  Log file:          /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/rPPGNet_UBFC_my_in_srcPURE_my_uiFalse_log.txt
+============================================================
+
+Train Inter:0 | loss:  1.3757521 |PURE_my : 0.9943918 |CM : -0.010179916 |DM : 0.38136032 |TA : 0.06804615 | 0 hr 00 min
+Train Inter:100 | loss:  0.22220048 |PURE_my : 0.18752682 |CM : -0.010613317 |DM : 0.034673657 |TA : 0.10660577 | 0 hr 00 min
+Train Inter:200 | loss:  0.12512061 |PURE_my : 0.10970336 |CM : -0.0105575295 |DM : 0.015417251 |TA : 0.113380134 | 0 hr 00 min
+Train Inter:300 | loss:  0.10802506 |PURE_my : 0.08861607 |CM : -0.011849068 |DM : 0.019408988 |TA : 0.11644411 | 0 hr 01 min
+Train Inter:400 | loss:  0.11593546 |PURE_my : 0.093975544 |CM : -0.011377214 |DM : 0.02195992 |TA : 0.12777382 | 0 hr 01 min
+Train Inter:500 | loss:  0.08831176 |PURE_my : 0.07433498 |CM : -0.011186197 |DM : 0.013976783 |TA : 0.12362862 | 0 hr 01 min
+Train Inter:600 | loss:  0.08980034 |PURE_my : 0.072627604 |CM : -0.011178603 |DM : 0.017172735 |TA : 0.13297695 | 0 hr 02 min
+Train Inter:700 | loss:  0.08750952 |PURE_my : 0.071765065 |CM : -0.0116051985 |DM : 0.015744455 |TA : 0.124699354 | 0 hr 02 min
+Train Inter:800 | loss:  0.06892347 |PURE_my : 0.06532669 |CM : -0.011066016 |DM : 0.0035967855 |TA : 0.13584352 | 0 hr 03 min
+Train Inter:900 | loss:  0.061125055 |PURE_my : 0.054540575 |CM : -0.010993819 |DM : 0.0065844795 |TA : 0.12825882 | 0 hr 03 min
+Train Inter:1000 | loss:  0.07802625 |PURE_my : 0.06911355 |CM : -0.010287125 |DM : 0.008912694 |TA : 0.13411862 | 0 hr 03 min
