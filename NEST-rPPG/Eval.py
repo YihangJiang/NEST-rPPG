@@ -58,7 +58,7 @@ if __name__ == '__main__':
     for HR_index in range(pr.size-1):
         temp = scio.loadmat(os.path.join(Idex_files, files_list[HR_index]))
         nowPath = str(temp['Path'][0])
-        Step_Index = int(temp['Step_Index'])
+        Step_Index = int(np.asarray(temp['Step_Index']).flat[0])
         a = pr[HR_index]
 
         if lastPath != nowPath:

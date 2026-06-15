@@ -885,3 +885,81 @@ AGGREGATE (5-fold CV | UBFC_my_in):
 
 Summary JSON: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_UBFC_my_in_wl0.0_summary.json
 Results CSV: /home/psa14/projects/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_UBFC_my_in_wl0.0_aug_both_results.csv
+
+============================================================
+Intratest 5-fold CV: UBFC_my_in
+Started: 2026-06-14 11:54:18
+Subjects: 40 | max_iter: 1000 | batch: 100
+loss_type: DM | seed: 0 | device: cuda:0
+
+[Fold 0] Building indexes...
+  train: 32 subjects, 4508 samples
+  test:  8 subjects, 1153 samples
+  [fold 0] iter 0/1000 | train=1.0013 src=1.0013 | val=1.0000 | CM=-0.0114 DM=0.5126 TA=0.0549 |  0 hr 00 min
+  [fold 0] iter 200/1000 | train=0.1177 src=0.1177 | val=0.3552 | CM=-0.0115 DM=1.1181 TA=0.0403 |  0 hr 01 min
+  [fold 0] iter 400/1000 | train=0.0561 src=0.0561 | val=0.3484 | CM=-0.0120 DM=1.0611 TA=0.0366 |  0 hr 01 min
+  [fold 0] iter 600/1000 | train=0.0441 src=0.0441 | val=0.4034 | CM=-0.0117 DM=0.9396 TA=0.0409 |  0 hr 02 min
+  [fold 0] iter 800/1000 | train=0.0227 src=0.0227 | val=0.3406 | CM=-0.0116 DM=1.0624 TA=0.0375 |  0 hr 03 min
+  [fold 0] iter 1000/1000 | train=0.0123 src=0.0123 | val=0.3531 | CM=-0.0118 DM=0.8305 TA=0.0370 |  0 hr 04 min
+  Saved training curve: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/cv_UBFC_my_in/cv_UBFC_my_in_wl0.0_fold0/feature/training_curve.png
+[Fold 0] ME=1.9226 Std=6.4937 MAE=4.3102 RMSE=6.7723 MER=0.052560 r=0.9802
+
+[Fold 1] Building indexes...
+  train: 32 subjects, 4632 samples
+  test:  8 subjects, 1029 samples
+  [fold 1] iter 0/1000 | train=0.9954 src=0.9954 | val=1.0000 | CM=-0.0114 DM=0.4738 TA=0.0567 |  0 hr 00 min
+  [fold 1] iter 200/1000 | train=0.1041 src=0.1041 | val=0.5468 | CM=-0.0117 DM=0.9598 TA=0.0417 |  0 hr 00 min
+  [fold 1] iter 400/1000 | train=0.0447 src=0.0447 | val=0.5344 | CM=-0.0113 DM=0.7618 TA=0.0395 |  0 hr 01 min
+  [fold 1] iter 600/1000 | train=0.0260 src=0.0260 | val=0.5421 | CM=-0.0114 DM=0.6235 TA=0.0470 |  0 hr 02 min
+  [fold 1] iter 800/1000 | train=0.0164 src=0.0164 | val=0.5243 | CM=-0.0117 DM=0.6116 TA=0.0474 |  0 hr 03 min
+  [fold 1] iter 1000/1000 | train=0.0157 src=0.0157 | val=0.5246 | CM=-0.0117 DM=0.6823 TA=0.0450 |  0 hr 04 min
+  Saved training curve: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/cv_UBFC_my_in/cv_UBFC_my_in_wl0.0_fold1/feature/training_curve.png
+[Fold 1] ME=3.8064 Std=12.0002 MAE=5.5484 RMSE=12.5894 MER=0.077691 r=0.8262
+
+[Fold 2] Building indexes...
+  train: 32 subjects, 4473 samples
+  test:  8 subjects, 1188 samples
+  [fold 2] iter 0/1000 | train=0.9951 src=0.9951 | val=1.0000 | CM=-0.0111 DM=0.4708 TA=0.0563 |  0 hr 00 min
+  [fold 2] iter 200/1000 | train=0.1160 src=0.1160 | val=0.2654 | CM=-0.0115 DM=0.7871 TA=0.0454 |  0 hr 00 min
+  [fold 2] iter 400/1000 | train=0.0435 src=0.0435 | val=0.2684 | CM=-0.0117 DM=0.8732 TA=0.0457 |  0 hr 01 min
+  [fold 2] iter 600/1000 | train=0.0261 src=0.0261 | val=0.2432 | CM=-0.0120 DM=0.7862 TA=0.0464 |  0 hr 02 min
+  [fold 2] iter 800/1000 | train=0.0212 src=0.0212 | val=0.2771 | CM=-0.0118 DM=0.5774 TA=0.0471 |  0 hr 03 min
+  [fold 2] iter 1000/1000 | train=0.0172 src=0.0172 | val=0.2594 | CM=-0.0118 DM=0.6820 TA=0.0432 |  0 hr 04 min
+  Saved training curve: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/cv_UBFC_my_in/cv_UBFC_my_in_wl0.0_fold2/feature/training_curve.png
+[Fold 2] ME=0.6411 Std=0.6035 MAE=0.7273 RMSE=0.8804 MER=0.006766 r=0.9990
+
+[Fold 3] Building indexes...
+  train: 32 subjects, 4516 samples
+  test:  8 subjects, 1145 samples
+  [fold 3] iter 0/1000 | train=0.9945 src=0.9945 | val=1.0000 | CM=-0.0110 DM=0.5070 TA=0.0579 |  0 hr 00 min
+  [fold 3] iter 200/1000 | train=0.1275 src=0.1275 | val=0.3876 | CM=-0.0116 DM=1.1736 TA=0.0372 |  0 hr 00 min
+  [fold 3] iter 400/1000 | train=0.0648 src=0.0648 | val=0.3838 | CM=-0.0119 DM=1.1068 TA=0.0320 |  0 hr 01 min
+  [fold 3] iter 600/1000 | train=0.0514 src=0.0514 | val=0.3884 | CM=-0.0121 DM=1.0975 TA=0.0428 |  0 hr 02 min
+  [fold 3] iter 800/1000 | train=0.0421 src=0.0421 | val=0.3601 | CM=-0.0124 DM=1.0239 TA=0.0349 |  0 hr 03 min
+  [fold 3] iter 1000/1000 | train=0.0395 src=0.0395 | val=0.3642 | CM=-0.0113 DM=0.8764 TA=0.0364 |  0 hr 04 min
+  Saved training curve: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/cv_UBFC_my_in/cv_UBFC_my_in_wl0.0_fold3/feature/training_curve.png
+[Fold 3] ME=5.0649 Std=11.7880 MAE=5.7661 RMSE=12.8300 MER=0.074642 r=0.3768
+
+[Fold 4] Building indexes...
+  train: 32 subjects, 4515 samples
+  test:  8 subjects, 1146 samples
+  [fold 4] iter 0/1000 | train=0.9961 src=0.9961 | val=1.0000 | CM=-0.0114 DM=0.4576 TA=0.0566 |  0 hr 00 min
+  [fold 4] iter 200/1000 | train=0.1191 src=0.1191 | val=0.2967 | CM=-0.0114 DM=0.9551 TA=0.0404 |  0 hr 00 min
+  [fold 4] iter 400/1000 | train=0.0441 src=0.0441 | val=0.2804 | CM=-0.0118 DM=0.9784 TA=0.0372 |  0 hr 01 min
+  [fold 4] iter 600/1000 | train=0.0366 src=0.0366 | val=0.2771 | CM=-0.0115 DM=0.8907 TA=0.0410 |  0 hr 02 min
+  [fold 4] iter 800/1000 | train=0.0211 src=0.0211 | val=0.2922 | CM=-0.0113 DM=0.9512 TA=0.0412 |  0 hr 03 min
+  [fold 4] iter 1000/1000 | train=0.0155 src=0.0155 | val=0.2736 | CM=-0.0115 DM=0.7159 TA=0.0420 |  0 hr 04 min
+  Saved training curve: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Wave_sort/cv_UBFC_my_in/cv_UBFC_my_in_wl0.0_fold4/feature/training_curve.png
+[Fold 4] ME=1.4818 Std=3.2864 MAE=1.6634 RMSE=3.6050 MER=0.017647 r=0.9511
+
+============================================================
+AGGREGATE (5-fold CV | UBFC_my_in):
+  ME: mean=2.5834  fold_std=1.6172  per_fold=[1.9226, 3.8064, 0.6411, 5.0649, 1.4818]
+  Std: mean=6.8344  fold_std=4.5333  per_fold=[6.4937, 12.0002, 0.6035, 11.788, 3.2864]
+  MAE: mean=3.6031  fold_std=2.0492  per_fold=[4.3102, 5.5484, 0.7273, 5.7661, 1.6634]
+  RMSE: mean=7.3354  fold_std=4.7685  per_fold=[6.7723, 12.5894, 0.8804, 12.83, 3.605]
+  MER: mean=0.0459  fold_std=0.0290  per_fold=[0.0526, 0.0777, 0.0068, 0.0746, 0.0176]
+  r: mean=0.8266  fold_std=0.2329  per_fold=[0.9802, 0.8262, 0.999, 0.3768, 0.9511]
+
+Summary JSON: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_UBFC_my_in_wl0.0_summary.json
+Results CSV: /home/yj167/Desktop/NEST-rPPG/NEST-rPPG/Training_Log/intratest_cv_UBFC_my_in_wl0.0_results.csv

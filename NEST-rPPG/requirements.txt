@@ -1,0 +1,19 @@
+# NEST-rPPG training dependencies
+#
+# Create env:
+#   conda create -n training python=3.11 -y
+#   conda activate training
+#
+# Install PyTorch with CUDA 12.4 (matches driver CUDA 12.6 on RTX 4090):
+#   pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+#
+# Install remaining deps:
+#   pip install -r requirements.txt
+
+numpy==2.4.4
+scipy==1.17.1
+opencv-python==4.13.0.92
+pandas==3.0.3
+matplotlib==3.11.0
+pillow==12.2.0
+tqdm==4.68.2

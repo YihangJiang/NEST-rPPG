@@ -135,6 +135,7 @@ def main():
     args = parser.parse_args()
 
     datasets = [d.strip() for d in args.datasets.split(',')] if args.datasets else DATASETS
+    print(datasets)
 
     results = []
     for dataset in datasets:

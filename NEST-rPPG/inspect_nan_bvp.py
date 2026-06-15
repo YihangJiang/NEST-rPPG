@@ -41,7 +41,7 @@ def find_nan_segments(domain: str, frames_num: int = 256):
         try:
             idx = scio.loadmat(fpath)
             now_path = str(idx["Path"][0])         # subject folder, e.g. STMap_my/PURE_my_in/01-01
-            step_idx = int(idx["Step_Index"])
+            step_idx = int(np.asarray(idx["Step_Index"]).flat[0])
         except Exception as e:
             print(f"[inspect_nan_bvp] Warning: failed to read index file {fpath}: {repr(e)}")
             continue
