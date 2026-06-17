@@ -9,6 +9,7 @@ _active = False
 _run_id: Optional[str] = None
 
 LAST_RUN_ID_FILE = os.path.join(config.RESULT_LOG_DIR, "last_mlflow_run_id.txt")
+DEFAULT_MODEL_ARTIFACT_PATH = "model"
 
 
 def _import_mlflow():
@@ -22,12 +23,6 @@ def _import_mlflow():
             ) from exc
         _mlflow = mlflow
     return _mlflow
-
-
-def is_enabled(args=None) -> bool:
-    if args is not None and getattr(args, "mlflow", False):
-        return True
-    return os.environ.get("MLFLOW_ENABLED", "").lower() in ("1", "true", "yes")
 
 
 def _tracking_uri(args=None) -> str:
@@ -51,15 +46,13 @@ def setup(
 ) -> bool:
     """Start an MLflow run. Returns True when tracking is active."""
     global _active, _run_id
-    if not is_enabled(args):
-        return False
-
     try:
         mlflow = _import_mlflow()
     except ImportError as exc:
         print(f"[MLflow] {exc}")
         return False
 
+    os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
     os.makedirs(config.MLFLOW_ARTIFACT_ROOT, exist_ok=True)
     mlflow.set_tracking_uri(_tracking_uri(args))
     mlflow.set_experiment(experiment_name or _experiment_name(args))
@@ -104,6 +97,81 @@ def log_artifacts(paths) -> None:
         log_artifact(path)
 
 
+def log_model(
+    model,
+    artifact_path: str = DEFAULT_MODEL_ARTIFACT_PATH,
+    registered_model_name: Optional[str] = None,
+) -> None:
+    if not _active:
+        return
+    import mlflow.pytorch
+
+    mlflow.pytorch.log_model(
+        pytorch_model=model,
+        name=artifact_path,
+        registered_model_name=registered_model_name,
+        serialization_format="pickle",
+    )
+
+
+def get_run_id() -> Optional[str]:
+    return _run_id
+
+
+def _find_run_id_by_name(
+    run_name: str,
+    experiment_name: Optional[str] = None,
+) -> Optional[str]:
+    from mlflow import MlflowClient
+
+    client = MlflowClient(_tracking_uri())
+    if experiment_name:
+        experiment = client.get_experiment_by_name(experiment_name)
+        experiment_ids = [experiment.experiment_id] if experiment else []
+    else:
+        experiment_ids = [exp.experiment_id for exp in client.search_experiments()]
+
+    if not experiment_ids:
+        return None
+
+    safe_name = run_name.replace('"', '\\"')
+    runs = client.search_runs(
+        experiment_ids=experiment_ids,
+        filter_string=f'attributes.run_name = "{safe_name}"',
+        order_by=["attributes.start_time DESC"],
+        max_results=1,
+    )
+    if not runs:
+        return None
+    return runs[0].info.run_id
+
+
+def load_model(
+    *,
+    run_id: Optional[str] = None,
+    run_name: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+    artifact_path: str = DEFAULT_MODEL_ARTIFACT_PATH,
+    map_location=None,
+):
+    mlflow = _import_mlflow()
+    mlflow.set_tracking_uri(_tracking_uri())
+
+    resolved_run_id = run_id or _load_run_id()
+    if resolved_run_id is None and run_name:
+        resolved_run_id = _find_run_id_by_name(run_name, experiment_name)
+    if not resolved_run_id:
+        raise FileNotFoundError(
+            "No MLflow run found for model load. "
+            "Train with MLflow first or pass run_id/run_name."
+        )
+
+    import mlflow.pytorch
+
+    model_uri = f"runs:/{resolved_run_id}/{artifact_path}"
+    return mlflow.pytorch.load_model(model_uri, map_location=map_location)
+
+
 def end_run() -> None:
     global _active, _run_id
     if not _active:
@@ -116,9 +184,6 @@ def end_run() -> None:
 def resume_run(run_id: Optional[str] = None) -> bool:
     """Resume logging to an existing run (e.g. eval after training)."""
     global _active, _run_id
-    if not is_enabled():
-        return False
-
     run_id = run_id or _load_run_id()
     if not run_id:
         return False

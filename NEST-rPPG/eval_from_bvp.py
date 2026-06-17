@@ -25,32 +25,6 @@ from utils.eval_utils import (
 import utils.mlflow_utils as mlflow_utils
 
 
-def _parse_train_regions_run_dir_name(run_dir_basename: str):
-    """
-    Parse Wave_sort folder name produced by train_regions.py:
-    rPPGNet_<tgt>_src<src>_uiTrue|_uiFalse
-    where <src> is the same string as CLI --src and <tgt> matches -t / --tgt.
-    Returns (target_domain, source_domain) or (None, None) if the pattern does not match.
-    """
-    if not run_dir_basename.startswith("rPPGNet_"):
-        return None, None
-    body = run_dir_basename[len("rPPGNet_"):]
-    stripped = None
-    for suf in ("_uiTrue", "_uiFalse"):
-        if body.endswith(suf):
-            stripped = body[: -len(suf)]
-            break
-    if stripped is None:
-        return None, None
-    sep = "_src"
-    idx = stripped.find(sep)
-    if idx < 0:
-        return None, None
-    tgt = stripped[:idx]
-    src = stripped[idx + len(sep):]
-    return tgt, src
-
-
 save_path = config.EVAL_SAVE_PATH
 # If train_regions.py was run recently, follow its Wave_sort output path automatically.
 try:

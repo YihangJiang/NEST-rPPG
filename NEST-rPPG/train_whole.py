@@ -208,9 +208,7 @@ Target_name = tgt_domain
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=source_domain,
-    spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
-    temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
-    ui=False,
+    weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
 
 log = Logger()
@@ -389,10 +387,8 @@ io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_HR_rel.mat'), {'HR_r
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_ALL.mat'), {'Wave': BVP_ALL})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
 
-os.makedirs(config.MODEL_DIR, exist_ok=True)
-model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
-torch.save(BaseNet, model_path)
-print('Saved model:', os.path.abspath(model_path))
+mlflow_utils.log_model(BaseNet)
+print('Saved model to MLflow run:', mlflow_utils.get_run_id())
 
 wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
@@ -423,5 +419,5 @@ try:
 except Exception as e:
     print("Warning: failed to write last_train_regions_meta.json:", repr(e))
 
-mlflow_utils.log_artifacts([log_path, model_path, meta_path])
+mlflow_utils.log_artifacts([log_path, meta_path])
 mlflow_utils.end_run()

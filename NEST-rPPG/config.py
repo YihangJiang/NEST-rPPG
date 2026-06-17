@@ -36,10 +36,12 @@ WAVE_SORT_ROOT = os.path.join(BASE_DIR, 'Wave_sort')
 MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
 # MLflow (override via MLFLOW_TRACKING_URI / MLFLOW_EXPERIMENT_NAME env vars)
+# MLflow 3.3+ requires a database backend (not file://). Artifacts still go under mlruns/.
 MLFLOW_ARTIFACT_ROOT = os.path.join(RESULT_LOG_DIR, 'mlruns')
+MLFLOW_DB_PATH = os.path.join(RESULT_LOG_DIR, 'mlflow.db')
 MLFLOW_TRACKING_URI = os.environ.get(
     'MLFLOW_TRACKING_URI',
-    'file://' + MLFLOW_ARTIFACT_ROOT,
+    'sqlite:///' + os.path.abspath(MLFLOW_DB_PATH),
 )
 MLFLOW_EXPERIMENT_NAME = os.environ.get('MLFLOW_EXPERIMENT_NAME', 'nest-rppg')
 
@@ -50,6 +52,7 @@ SRC_DOMAIN = 'PURE_my_rm'      # single source; omit/None = use all TARGET_DOMAI
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
+WEIGHT_INFO = 0.0        # InfoNCE alignment weight (0 = disabled)
 SEED = 0
 
 # Mapping from target domain to list of all possible source domains
@@ -107,21 +110,18 @@ def get_index_dir(domain: str) -> str:
     return os.path.join(STMAP_INDEX_BASE, domain)
 
 
-def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=None, ui=None, override=None):
+def build_run_name(
+    tgt=None,
+    src=None,
+    weight_info=None,
+):
     """
-    Build rPPGNet run name.
-
-    - If `ui` is provided (True/False): use the region-run style suffix `_uiTrue` / `_uiFalse`.
-    - Otherwise: use the classic suffix `_loss<LOSS_TYPE>` (backward-compatible with train.py outputs).
+    Build rPPGNet run name: rPPGNet_<tgt>_src<src>_w<weight_info>.
     """
-    if override:
-        return override
     tgt = tgt or TGT_DOMAIN
     src = src or SRC_DOMAIN
-    if ui is not None:
-        return f"rPPGNet_{tgt}_src{src}_ui{bool(ui)}"
-    loss_type = loss_type or LOSS_TYPE
-    return f"rPPGNet_{tgt}_src{src}_loss{loss_type}"
+    w = float(WEIGHT_INFO if weight_info is None else weight_info)
+    return f"rPPGNet_{tgt}_src{src}_w{'%g' % w}"
 
 
 def canonical_data_name(domain: str) -> str:
@@ -137,7 +137,7 @@ def canonical_data_name(domain: str) -> str:
 # Comment out the option you are NOT using.
 
 # --- Option A: train.py output (WAVE_SORT_ROOT / TGT_DOMAIN / build_run_name()) ---
-EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, TGT_DOMAIN, build_run_name())
+EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, TGT_DOMAIN, build_run_name(weight_info=WEIGHT_INFO))
 
 # --- Option B: train_regions output (set test_domain and run name to match your regions run) ---
 # EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, 'UBFC_my_in', 'rPPGNet_UBFC_my_in_srcPURE_my_in')

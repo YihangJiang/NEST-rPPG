@@ -120,10 +120,8 @@ def get_args():
                         help='the num of frames')
     parser.add_argument('-t', '--tgt', dest='tgt', type=str, default='VIPL',
                         help='the name of target domain: VIPL, COH, V4V, UBFC, PURE...')
-    parser.add_argument('-ui', '--use_infonce', action='store_true',
-                        help='Enable InfoNCE contrastive alignment with pos/neg domains')
     parser.add_argument('--weight_info', dest='weight_info', type=float, default=0.01,
-                        help='Weight for InfoNCE alignment loss')
+                        help='Weight for InfoNCE alignment loss (0 disables alignment)')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
     parser.add_argument('--regions', dest='regions', type=str, default='all',
@@ -131,8 +129,6 @@ def get_args():
                         help='InfoNCE logits source: all (pos+neg), neg-only, or pos-only')
 
     # MLflow experiment tracking
-    parser.add_argument('--mlflow', action='store_true',
-                        help='Enable MLflow logging (also set MLFLOW_ENABLED=1)')
     parser.add_argument('--mlflow-experiment', dest='mlflow_experiment', type=str, default=None,
                         help='MLflow experiment name (default: config.MLFLOW_EXPERIMENT_NAME)')
     parser.add_argument('--mlflow-run-name', dest='mlflow_run_name', type=str, default=None,

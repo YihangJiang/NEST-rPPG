@@ -18,6 +18,7 @@ from datetime import datetime
 import os
 from utils.core import Logger, time_to_str, get_args
 from utils import train_utils
+import utils.mlflow_utils as mlflow_utils
 from timeit import default_timer as timer
 import time
 import random
@@ -133,9 +134,7 @@ os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=getattr(args, 'src', None),
-    spatial=getattr(args, 'spatial_aug_rate', None),
-    temporal=getattr(args, 'temporal_aug_rate', None),
-    loss_type=getattr(args, 'loss_type', None),
+    weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
 log = Logger()
 log.open(os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt'), mode='a')
@@ -209,7 +208,7 @@ train_utils.save_example_figures(
 BaseNet = model.BaseNet()
 
 if reTrain == 1:
-    BaseNet = torch.load(os.path.join(config.MODEL_DIR, rPPGNet_name), map_location=device)
+    BaseNet = mlflow_utils.load_model(run_name=rPPGNet_name, map_location=device)
     print('load ' + rPPGNet_name + ' right')
 BaseNet.to(device=device)
 optimizer_rPPG = torch.optim.Adam(BaseNet.parameters(), lr=learning_rate)
@@ -380,10 +379,15 @@ io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'HR_pr.mat'), {'HR_pr'
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'HR_rel.mat'), {'HR_rel': HR_rel_temp})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'WAVE_ALL.mat'), {'Wave': BVP_ALL})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + 'WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
-os.makedirs(config.MODEL_DIR, exist_ok=True)
-model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
-torch.save(BaseNet, model_path)
-print('Saved model:', os.path.abspath(model_path))
+if mlflow_utils.setup(
+    args,
+    experiment_name='nest-rppg',
+    run_name=rPPGNet_name,
+    tags={'script': 'train', 'rPPGNet_name': rPPGNet_name},
+):
+    mlflow_utils.log_model(BaseNet)
+    print('Saved model to MLflow run:', mlflow_utils.get_run_id())
+    mlflow_utils.end_run()
 
 try:
     wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, Target_name, rPPGNet_name)

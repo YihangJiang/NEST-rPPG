@@ -63,9 +63,6 @@ if _USE_JUPYTER_CONFIG:
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
         weight_info=0.01,
         tau_info=0.07,
-        # When False: disable InfoNCE (no pos/neg forwards, align_pos_loss=0).
-        # When True: use pos/neg domains for contrastive alignment.
-        use_infonce=False,
         regions='all',
         grad_clip=5.0,
     )
@@ -104,7 +101,6 @@ else:
 # %%
 # ============ Cell 2: Dataset & index ============
 print("=" * 60)
-print(args.use_infonce)
 
 # Reproducibility: set all RNG seeds before any randomness (datasets, model, dataloader shuffle)
 def _set_seed(seed):
@@ -182,7 +178,7 @@ print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
 print("  base_src      :", base_src)
 print("  tgt_domain    :", tgt_domain)
 print("  source_domain :", source_domain)
-print("  use_infonce   :", args.use_infonce)
+print("  weight_info   :", getattr(args, "weight_info", 0.0))
 print("  pos_domain    :", pos_domain)
 print("  neg_domain    :", neg_domain)
 print("Test STMap root:", target_root)
@@ -321,9 +317,7 @@ Target_name = tgt_domain
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=source_domain,
-    spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
-    temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
-    ui=getattr(args, 'use_infonce', False)
+    weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
 
 log = Logger()
@@ -364,7 +358,6 @@ mlflow_utils.log_params({
     'target_domain': tgt_domain,
     'pos_domain': pos_domain,
     'neg_domain': neg_domain,
-    'use_infonce': bool(getattr(args, 'use_infonce', False)),
     'weight_info': float(getattr(args, 'weight_info', 0.0)),
     'regions': str(getattr(args, 'regions', 'all')),
     'loss_type': getattr(args, 'loss_type', config.LOSS_TYPE),
@@ -404,14 +397,14 @@ for iter_num in range(max_iter + 1):
     data_aug = Variable(data_aug).float().to(device=device)
     bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
     HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
-    # Optional InfoNCE contrastive alignment (pos/neg domains).
-    # When disabled, we don't run pos/neg forwards and align_pos_loss stays 0.
-    use_infonce = bool(getattr(args, "use_infonce", False))
+    # InfoNCE contrastive alignment (pos/neg domains) when weight_info > 0.
+    weight_info = float(getattr(args, "weight_info", 0.0))
+    use_align = weight_info > 0.0
     align_pos_loss = torch.tensor(0.0, device=device)
     av_pos = None
     av_neg = None
 
-    if use_infonce:
+    if use_align:
         # Positive/negative-domain batches for InfoNCE.
         # Important: run these auxiliary forwards WITHOUT gradients.
         try:
@@ -439,7 +432,7 @@ for iter_num in range(max_iter + 1):
     bvp_pre, HR_pr, av = BaseNet(data)
     bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
 
-    if use_infonce:
+    if use_align:
         # InfoNCE-style alignment: per sample i, softmax over paired pos vs paired neg only (q·k_pos[i], q·k_neg[i]).
         m = av.shape[0]
         tau = float(getattr(args, 'tau_info', 0.07))
@@ -526,7 +519,7 @@ for iter_num in range(max_iter + 1):
         loss = src_loss + loss_TA
 
     # Add alignment regularizer between src av and pos_domain av
-    loss = loss + args.weight_info * align_pos_loss
+    loss = loss + weight_info * align_pos_loss
 
     if torch.sum(torch.isnan(loss)) > 0:
         print('Nan')
@@ -607,10 +600,8 @@ io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_HR_rel.mat'), {'HR_r
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_ALL.mat'), {'Wave': BVP_ALL})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
 
-os.makedirs(config.MODEL_DIR, exist_ok=True)
-model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
-torch.save(BaseNet, model_path)
-print('Saved model:', os.path.abspath(model_path))
+mlflow_utils.log_model(BaseNet)
+print('Saved model to MLflow run:', mlflow_utils.get_run_id())
 
 wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
@@ -643,7 +634,7 @@ try:
 except Exception as e:
     print("Warning: failed to write last_train_regions_meta.json:", repr(e))
 
-mlflow_utils.log_artifacts([log_path, model_path, meta_path])
+mlflow_utils.log_artifacts([log_path, meta_path])
 mlflow_utils.end_run()
 
 # %%
