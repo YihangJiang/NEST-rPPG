@@ -1,6 +1,6 @@
 """
 Evaluates BVP model performance from Wave_sort .mat files (gt/pr pairs):
-heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE, MER, Pearson r.
+heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE, MER.
 When run this script, use interpreter: mprppg
 """
 # %%
@@ -14,6 +14,8 @@ from utils.eval_utils import (
     hr_from_fft,
     my_eval,
     run_eval,
+    infer_frames_num_from_wave_sort,
+    eval_mean_guessing_baseline,
     visualize_mat_waves,
     estimate_hr_from_psd,
     plot_subject_error_bars,
@@ -117,6 +119,31 @@ tgt_for_csv = str(meta["target_domain"])
 weight_for_csv = float(meta["weight_info"])
 regions_for_csv = str(meta["regions"])
 payload["regions"] = regions_for_csv
+
+frames_num = infer_frames_num_from_wave_sort(save_path)
+train_index_dir = os.path.join(config.STMAP_INDEX_BASE, src_for_csv)
+test_index_dir = os.path.join(config.STMAP_INDEX_BASE, tgt_for_csv)
+mean_guess = eval_mean_guessing_baseline(
+    train_index_dir,
+    config.canonical_data_name(src_for_csv),
+    test_index_dir,
+    config.canonical_data_name(tgt_for_csv),
+    frames_num,
+)
+payload["mean_guessing_baseline"] = {
+    "train_domain": src_for_csv,
+    "test_domain": tgt_for_csv,
+    "train_mean_hr_bpm": mean_guess["train_mean_hr_bpm"],
+    "n_train_segments": int(mean_guess["n_train_segments"]),
+    "n_test_segments": int(mean_guess["n_test_segments"]),
+    "n_test_subjects": int(mean_guess["n_test_subjects"]),
+    "MAE": mean_guess["MAE"],
+    "ME": mean_guess["ME"],
+    "Std": mean_guess["Std"],
+    "RMSE": mean_guess["RMSE"],
+    "MER": mean_guess["MER"],
+}
+
 with open(json_path, "w") as f:
     json.dump(payload, f, indent=2)
 print(f"Updated eval summary JSON with regions: {json_path}")
@@ -139,13 +166,21 @@ if mlflow_utils.resume_run():
         'eval_MAE': float(hr_metrics.get('MAE', 0.0)),
         'eval_RMSE': float(hr_metrics.get('RMSE', 0.0)),
         'eval_MER': float(hr_metrics.get('MER', 0.0)),
-        'eval_r': float(hr_metrics.get('r', 0.0)),
+        'eval_mean_guess_MAE': float(mean_guess['MAE']),
+        'eval_mean_guess_ME': float(mean_guess['ME']),
+        'eval_mean_guess_RMSE': float(mean_guess['RMSE']),
+        'eval_mean_guess_train_hr': float(mean_guess['train_mean_hr_bpm']),
     })
     mlflow_utils.log_params({
         'eval_source_domain': src_for_csv,
         'eval_target_domain': tgt_for_csv,
         'eval_weight_info': weight_for_csv,
         'eval_regions': regions_for_csv,
+        'eval_mean_guess_train_domain': src_for_csv,
+        'eval_mean_guess_test_domain': tgt_for_csv,
+        'eval_mean_guess_n_train_segments': int(mean_guess['n_train_segments']),
+        'eval_mean_guess_n_test_segments': int(mean_guess['n_test_segments']),
+        'eval_mean_guess_n_test_subjects': int(mean_guess['n_test_subjects']),
     })
     mlflow_utils.log_artifacts([
         json_path,
@@ -157,16 +192,28 @@ if mlflow_utils.resume_run():
     mlflow_utils.end_run()
     print("Logged eval metrics to MLflow run.")
 
-# Print table: ME, Std, MAE, RMSE, MER, Pearson r
-print(f"Source domain: {config.SRC_DOMAIN}")
-print(f"Target domain: {config.TGT_DOMAIN}")
-print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER\t\tr")
-print("-" * 90)
+# Print table: ME, Std, MAE, RMSE, MER
+print(f"Source domain: {src_for_csv}")
+print(f"Target domain: {tgt_for_csv}")
+print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER")
+print("-" * 80)
 for name, metrics in result.items():
     print(
         f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-        f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}\t{metrics['r']:.6f}"
+        f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}"
     )
+
+print()
+print("Mean-guessing baseline (training GT mean vs test GT)")
+print(f"  Training domain:     {src_for_csv}")
+print(f"  Test domain:         {tgt_for_csv}")
+print(f"  Training index:      {train_index_dir}")
+print(f"  Test index:          {test_index_dir}")
+print(f"  Training mean HR:    {mean_guess['train_mean_hr_bpm']:.6f} bpm  "
+      f"({int(mean_guess['n_train_segments'])} segments)")
+print(f"  Test segments:       {int(mean_guess['n_test_segments'])}")
+print(f"  Test subjects:       {int(mean_guess['n_test_subjects'])}")
+print(f"  MAE (|train_mean - test_gt|): {mean_guess['MAE']:.6f}")
 
 # %%
 # Optional debug example (disabled by default):

@@ -266,24 +266,20 @@ print("  baseline test dataset  :", tgt_domain, "num_samples =", len(target_db))
 print("Creating DataLoaders (baseline like train.py)...")
 # Fixed generator so shuffle order is reproducible across runs
 _generator = torch.Generator().manual_seed(args.seed)
+_dl_kwargs = dict(
+    batch_size=batch_size,
+    num_workers=num_workers,
+    worker_init_fn=_worker_init_fn,
+    persistent_workers=num_workers > 0,
+)
 src_loader = DataLoader(
-    source_db, batch_size=batch_size, shuffle=True, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn, generator=_generator
+    source_db, shuffle=True, generator=_generator, **_dl_kwargs
 )
-tgt_loader = DataLoader(
-    target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
+tgt_loader = DataLoader(target_db, shuffle=False, **_dl_kwargs)
 
 # Dataloaders for pos/neg domains
-pos_loader = DataLoader(
-    pos_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
-neg_loader = DataLoader(
-    neg_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
+pos_loader = DataLoader(pos_db, shuffle=False, **_dl_kwargs)
+neg_loader = DataLoader(neg_db, shuffle=False, **_dl_kwargs)
 
 steps_per_epoch = len(src_loader)
 print(f"steps_per_epoch (source) = {steps_per_epoch}")
@@ -298,16 +294,17 @@ else:
     device = torch.device('cpu')
     print('Using CPU')
 
-BaseNet = model.BaseNet().to(device=device)
-# BaseNet = model.BaseNetResSkip().to(device=device)
+BaseNet = model.BaseNet()
+# BaseNet = model.BaseNetResSkip()
 
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
-loss_func_NP = MyLoss.P_loss3().to(device)
-loss_func_L1 = nn.L1Loss().to(device)
-loss_func_SP = MyLoss.SP_loss(device, clip_length=frames_num).to(device)
-loss_func_NEST_CM = MyLoss.NEST_CM().to(device)
-loss_func_NEST_DM = MyLoss.NEST_DM().to(device)
-loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8).to(device)
+loss_func_NP = MyLoss.P_loss3()
+loss_func_L1 = nn.L1Loss()
+loss_func_NEST_CM = MyLoss.NEST_CM()
+loss_func_NEST_DM = MyLoss.NEST_DM()
+loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8)
+# SP_loss allocates CUDA tensors in __init__; created after DataLoader workers fork.
+loss_func_SP = None
 
 # Logging & model name (use config paths)
 os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
@@ -346,12 +343,11 @@ log.write("  Model:             %s\n" % BaseNet.__class__.__name__)
 log.write("  Source samples:    %s  (target: %d)\n" % (total_src_samples, len(target_db)))
 log.write("  Log file:          %s\n" % log_path)
 log.write("=" * 60 + "\n\n")
-
 mlflow_utils.setup(
     args,
     experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
     run_name=rPPGNet_name,
-    tags={'script': 'train_regions', 'rPPGNet_name': rPPGNet_name},
+    tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain},
 )
 mlflow_utils.log_params({
     'source_domain': source_domain,
@@ -371,14 +367,24 @@ mlflow_utils.log_params({
 
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
-BaseNet.train()
-start = timer()
-max_iter = args.max_iter
-
+# Fork DataLoader workers before CUDA init (avoids fork-after-CUDA deadlock).
 src_iter = iter(src_loader)
 src_iter_per_epoch = len(src_iter)
 pos_iter = iter(pos_loader)
 neg_iter = iter(neg_loader)
+iter(tgt_loader)
+
+BaseNet = BaseNet.to(device=device)
+loss_func_NP = loss_func_NP.to(device)
+loss_func_L1 = loss_func_L1.to(device)
+loss_func_SP = MyLoss.SP_loss(device, clip_length=frames_num).to(device)
+loss_func_NEST_CM = loss_func_NEST_CM.to(device)
+loss_func_NEST_DM = loss_func_NEST_DM.to(device)
+loss_func_NEST_TA = loss_func_NEST_TA.to(device)
+
+BaseNet.train()
+start = timer()
+max_iter = args.max_iter
 
 _printed_nan_debug = False
 

@@ -59,17 +59,17 @@ def hr_from_fft(signal_1d: np.ndarray, fs: float = FS_BVP) -> float:
 
 
 def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
-    """Matches MyEval.m: me, E_std, mae, rmse, mer, p (Pearson r)."""
+    """Matches MyEval.m: me, E_std, mae, rmse, mer."""
     hr_pr = np.asarray(hr_pr).ravel()
     hr_gt = np.asarray(hr_gt).ravel()
     n = len(hr_pr)
     if n != len(hr_gt) or n == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan
     temp = hr_pr - hr_gt
     valid = ~(np.isnan(hr_pr) | np.isnan(hr_gt))
     n_valid = np.sum(valid)
     if n_valid == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan, np.nan
     # ME: mean error
     me = float(np.nanmean(temp)) if n_valid > 0 else np.nan
     # E_std: std of error
@@ -81,12 +81,137 @@ def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
     # MER: mean absolute relative error
     mer = np.abs(temp) / (hr_gt + 0.01)
     mer = float(np.nanmean(mer)) if n_valid > 0 else np.nan
-    # Pearson correlation
-    if n_valid < 2:
-        p = np.nan
-    else:
-        p = float(np.corrcoef(hr_pr[valid], hr_gt[valid])[0, 1])
-    return me, e_std, mae, rmse, mer, p
+    return me, e_std, mae, rmse, mer
+
+
+def _load_bvp_segment(now_path: str, step_index: int, frames_num: int, data_name: str) -> np.ndarray:
+    """Load and min-max normalize one BVP clip (matches MyDataset.getLabel)."""
+    if (
+        data_name.startswith("PURE_my")
+        or data_name.startswith("UBFC_my")
+        or data_name.startswith("BUAA_my")
+        or data_name in ("PURE", "UBFC", "BUAA")
+    ):
+        bvp_path = os.path.join(now_path, "Label", "BVP.mat")
+        bvp = scio.loadmat(bvp_path)["BVP"]
+        bvp = np.array(bvp, dtype=np.float32).reshape(-1)
+        bvp = bvp[step_index: step_index + frames_num]
+        bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
+        return bvp.astype(np.float32)
+    raise ValueError(f"Unsupported data_name for BVP load: {data_name!r}")
+
+
+def infer_frames_num_from_wave_sort(save_path: str) -> int:
+    """Infer segment length (frames_num) from the first gt_Wave.mat in a Wave_sort folder."""
+    save_path = os.path.abspath(save_path)
+    gt_files = sorted(f for f in os.listdir(save_path) if f.endswith(".mat") and "gt_Wave" in f)
+    if not gt_files:
+        raise FileNotFoundError(f"No gt_Wave.mat files in {save_path}")
+    wave = np.squeeze(scio.loadmat(os.path.join(save_path, gt_files[0]))["Wave"])
+    if wave.ndim == 1:
+        return int(wave.shape[0])
+    return int(wave.shape[1])
+
+
+def mean_gt_hr_from_index(
+    index_dir: str,
+    data_name: str,
+    frames_num: int,
+) -> Tuple[float, int]:
+    """
+    Mean FFT HR (BPM) over all GT BVP clips in index_dir.
+    Returns (mean_hr_bpm, n_valid_segments).
+    """
+    segment_hrs = gt_hr_segments_from_index(index_dir, data_name, frames_num)
+    hr_values = [float(s["hr_bpm"]) for s in segment_hrs if np.isfinite(s["hr_bpm"])]
+    if not hr_values:
+        raise ValueError(f"No valid FFT HR values from index: {index_dir}")
+    return float(np.mean(hr_values)), len(hr_values)
+
+
+def gt_hr_segments_from_index(
+    index_dir: str,
+    data_name: str,
+    frames_num: int,
+) -> List[Dict[str, Any]]:
+    """FFT HR (BPM) for every GT BVP clip listed in an index directory."""
+    index_dir = os.path.abspath(index_dir)
+    if not os.path.isdir(index_dir):
+        raise FileNotFoundError(f"Index dir not found: {index_dir}")
+
+    segments: List[Dict[str, Any]] = []
+    for fname in sorted(os.listdir(index_dir)):
+        if not fname.endswith(".mat"):
+            continue
+        temp = scio.loadmat(os.path.join(index_dir, fname))
+        now_path = str(temp["Path"][0])
+        step_index = int(temp["Step_Index"])
+        bvp = _load_bvp_segment(now_path, step_index, frames_num, data_name)
+        hr_bpm = hr_from_fft(bvp, fs=FS_BVP)
+        segments.append({
+            "subject_id": os.path.basename(now_path.rstrip(os.sep)),
+            "hr_bpm": float(hr_bpm) if np.isfinite(hr_bpm) else np.nan,
+        })
+    if not segments:
+        raise ValueError(f"No index clips found in: {index_dir}")
+    return segments
+
+
+def subject_mean_hr_from_segments(segments: List[Dict[str, Any]]) -> Tuple[np.ndarray, int, int]:
+    """Average segment HR per subject. Returns (subject_mean_hr, n_segments, n_subjects)."""
+    grouped: Dict[str, List[float]] = {}
+    for seg in segments:
+        hr_bpm = float(seg["hr_bpm"])
+        if not np.isfinite(hr_bpm):
+            continue
+        grouped.setdefault(str(seg["subject_id"]), []).append(hr_bpm)
+
+    if not grouped:
+        raise ValueError("No valid segment HR values to aggregate by subject")
+
+    subject_means = np.array(
+        [float(np.mean(hrs)) for hrs in grouped.values()],
+        dtype=float,
+    )
+    n_segments = sum(len(hrs) for hrs in grouped.values())
+    return subject_means, n_segments, len(grouped)
+
+
+def eval_mean_guessing_baseline(
+    train_index_dir: str,
+    source_domain: str,
+    test_index_dir: str,
+    target_domain: str,
+    frames_num: int,
+) -> Dict[str, float]:
+    """
+    Mean-guessing baseline (subject-level).
+
+    1. train_mean = mean FFT HR over all GT BVP clips in the training index.
+    2. test_gt = per-subject mean FFT HR over all GT BVP clips in the test index.
+    3. Predict constant train_mean for every test subject.
+    4. Compare predictions to test GT with my_eval.
+    """
+    train_mean_hr, n_train_segments = mean_gt_hr_from_index(
+        train_index_dir, source_domain, frames_num
+    )
+    test_segments = gt_hr_segments_from_index(test_index_dir, target_domain, frames_num)
+    test_hr_gt, n_test_segments, n_test_subjects = subject_mean_hr_from_segments(test_segments)
+    hr_pr = np.full_like(test_hr_gt, train_mean_hr)
+    me, std, mae, rmse, mer = my_eval(hr_pr, test_hr_gt)
+    return {
+        "train_domain": source_domain,
+        "test_domain": target_domain,
+        "train_mean_hr_bpm": train_mean_hr,
+        "n_train_segments": float(n_train_segments),
+        "n_test_segments": float(n_test_segments),
+        "n_test_subjects": float(n_test_subjects),
+        "ME": me,
+        "Std": std,
+        "MAE": mae,
+        "RMSE": rmse,
+        "MER": mer,
+    }
 
 
 def run_eval(
@@ -96,7 +221,7 @@ def run_eval(
 ) -> Dict[str, Dict[str, Any]] | Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """
     Load gt/pr .mat pairs, compute FFT heart rate per segment (no interpolation, fs=FS_BVP).
-    Average HR per subject, then compute ME, Std, MAE, RMSE, MER, Pearson r.
+    Average HR per subject, then compute ME, Std, MAE, RMSE, MER.
     save_path: directory with '*gt_Wave.mat' and '*pr_Wave.mat' pairs (e.g. Wave_sort/PURE).
     """
     save_path = os.path.abspath(save_path)
@@ -175,8 +300,8 @@ def run_eval(
 
     hr_pr = np.array(hr_pr_per_subject)
     hr_gt = np.array(hr_gt_per_subject)
-    me, e_std, mae, rmse, mer, p = my_eval(hr_pr, hr_gt)
-    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse, "MER": mer, "r": p}}
+    me, e_std, mae, rmse, mer = my_eval(hr_pr, hr_gt)
+    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse, "MER": mer}}
     if return_details:
         details["hr_gt_subject_mean_bpm"] = hr_gt
         details["hr_pr_subject_mean_bpm"] = hr_pr
@@ -284,7 +409,7 @@ def append_regions_eval_summary_csv(
     Intended for `run_regions.sh` flows: after `train_regions.py` + `eval_from_bvp.py`,
     record source/target domains, InfoNCE weight, and HR metrics from `run_eval` output.
 
-    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, RMSE, r
+    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, RMSE
     """
     if metric_key not in result:
         raise KeyError(f"result has no key {metric_key!r}; keys: {list(result.keys())}")
@@ -297,9 +422,8 @@ def append_regions_eval_summary_csv(
         "Std": m.get("Std", np.nan),
         "MAE": m.get("MAE", np.nan),
         "RMSE": m.get("RMSE", np.nan),
-        "r": m.get("r", np.nan),
     }
-    fieldnames = ["Source Domain", "Target domain", "Weight", "Regions", "Std", "MAE", "RMSE", "r"]
+    fieldnames = ["Source Domain", "Target domain", "Weight", "Regions", "Std", "MAE", "RMSE"]
     training_cols = fieldnames[:4]
     inference_cols = fieldnames[4:]
 
@@ -309,11 +433,19 @@ def append_regions_eval_summary_csv(
     if os.path.exists(csv_path):
         # Append to existing hierarchical CSV.
         df = pd.read_csv(csv_path, header=[0, 1])
+        drop_cols = [c for c in df.columns if len(c) > 1 and c[1] == "r"]
+        if drop_cols:
+            df = df.drop(columns=drop_cols)
+        expected_cols = pd.MultiIndex.from_tuples(
+            [("Training", col) for col in training_cols] +
+            [("Inference", col) for col in inference_cols]
+        )
+        df = df.reindex(columns=expected_cols)
         new_row = pd.DataFrame([[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
-            m.get("RMSE", np.nan), m.get("r", np.nan),
-        ]], columns=df.columns)
+            m.get("RMSE", np.nan),
+        ]], columns=expected_cols)
         training_cols = df.columns[:4]
         match = pd.Series(True, index=df.index)
         for c in training_cols:
@@ -331,7 +463,7 @@ def append_regions_eval_summary_csv(
         new_row = [[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
-            m.get("RMSE", np.nan), m.get("r", np.nan),
+            m.get("RMSE", np.nan),
         ]]
         df = pd.DataFrame(new_row, columns=multi_cols)
 

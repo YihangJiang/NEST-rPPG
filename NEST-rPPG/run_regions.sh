@@ -104,14 +104,43 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # conda activate rppg; python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all --weight_info 0.03
 # conda activate mprppg; python eval_from_bvp.py
 
-conda activate rppg; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0
-conda activate mpipe; python eval_from_bvp.py
+# ============================================
+# Training: BUAA_my_in -> Testing: UBFC_my_in (weight_info sweep)
+# ============================================
+# conda activate training; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0
+# conda activate training; python eval_from_bvp.py
 
-# conda activate rppg; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0.03
-# conda activate mprppg; python eval_from_bvp.py
+# conda activate training; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0
+# conda activate training; python eval_from_bvp.py
 
-# conda activate rppg; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0
-# conda activate mprppg; python eval_from_bvp.py
+# conda activate training; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0.001
+# conda activate training; python eval_from_bvp.py
+
+# conda activate training; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0.001
+# conda activate training; python eval_from_bvp.py
+
+# conda activate training; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0.01
+# conda activate training; python eval_from_bvp.py
+
+# conda activate training; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0.01
+# conda activate training; python eval_from_bvp.py
+
+# conda activate training; python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --weight_info 0.05
+# conda activate training; python eval_from_bvp.py
+
+conda activate training; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0.05
+conda activate training; python eval_from_bvp.py
+
+# ============================================
+# Training: UBFC_my_in -> Testing: BUAA_my_in (weight_info sweep)
+# ============================================
+
+
+
+
+
+
+
 
 # conda activate rppg; python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --weight_info 0.03
 # conda activate mprppg; python eval_from_bvp.py

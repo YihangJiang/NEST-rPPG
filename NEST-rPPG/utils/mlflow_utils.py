@@ -97,6 +97,20 @@ def log_artifacts(paths) -> None:
         log_artifact(path)
 
 
+def _model_pip_requirements() -> list[str]:
+    """Pinned requirements using exact installed versions (keeps CUDA local labels)."""
+    import importlib.metadata as metadata
+
+    packages = ("torch", "torchvision", "cloudpickle", "mlflow")
+    reqs: list[str] = []
+    for package in packages:
+        try:
+            reqs.append(f"{package}=={metadata.version(package)}")
+        except metadata.PackageNotFoundError:
+            continue
+    return reqs
+
+
 def log_model(
     model,
     artifact_path: str = DEFAULT_MODEL_ARTIFACT_PATH,
@@ -111,6 +125,7 @@ def log_model(
         name=artifact_path,
         registered_model_name=registered_model_name,
         serialization_format="pickle",
+        pip_requirements=_model_pip_requirements(),
     )
 
 
