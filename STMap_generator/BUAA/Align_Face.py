@@ -7,15 +7,18 @@ import numpy as np
 
 # %%
 # Config
-fileRoot = '/mnt/nvme2/rppg_data/BUAA_EYE'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_IN'
 
 # Base folder in this repo where aligned PNGs will be mirrored,
 # e.g. BUAA_my/Sub_01lux10.0/Align/xxxxx.png
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, '..', '..'))
-BUAA_MY_ROOT = os.path.join(_REPO_ROOT, 'STMap_my', 'BUAA_my_eye')
+BUAA_MY_ROOT = os.path.join(_REPO_ROOT, 'STMap_my', 'BUAA_my_in')
 OUTPUT_SIZE = 128
 FRAME_NAME_START = 10000  # first frame saved as 10000.png, 10001.png, ...
+
+# Single-subject mode: set e.g. "Sub_10lux 15.8". Set to None for all subjects (batch).
+ONLY_SUBJECT = 'Sub_10lux 15.8'
 
 # ROI indices (68-point face): face outline, then exclude eyes, nose, mouth
 ROI_FACE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 26, 22, 21, 17]
@@ -102,37 +105,64 @@ def process_video(now_path, video_path, lmk_path, align_path, mask_path, buaa_al
     print('  ->', align_path, f'({z - FRAME_NAME_START} frames)')
 
 
+def parse_buaa_my_folder(buaa_my_folder):
+    """Split STMap_my folder name into raw-data subject and lux subfolder."""
+    lux_idx = buaa_my_folder.find('lux')
+    if lux_idx < 0:
+        return None, None
+    return buaa_my_folder[:lux_idx], buaa_my_folder[lux_idx:]
+
+
+def process_subject(buaa_my_folder, subfile_p, subfile):
+    """Align one subject/lux pair given raw folder parts and BUAA_my folder name."""
+    now_path = os.path.join(fileRoot, subfile_p, subfile)
+    if not os.path.isdir(now_path):
+        print('  Skip (raw folder not found):', now_path)
+        return False
+
+    avi_name = get_file(now_path, 'avi')
+    if not avi_name:
+        print('  Skip (no .avi):', now_path)
+        return False
+
+    video_path = os.path.join(now_path, avi_name)
+    lmk_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Label', 'RGB_lmk.csv')
+    if not os.path.isfile(lmk_path):
+        print('  Skip (no Label/RGB_lmk.csv in BUAA_my):', lmk_path)
+        return False
+
+    align_path = os.path.join(now_path, 'Align')
+    mask_path = os.path.join(now_path, 'Mask')
+    buaa_align_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Align')
+
+    print(now_path, '->', buaa_align_path)
+    process_video(now_path, video_path, lmk_path, align_path, mask_path, buaa_align_path=buaa_align_path)
+    return True
+
+
 # %%
-# Run over all subject folders under fileRoot
-for subfile_p in sorted(os.listdir(fileRoot)):
-    if subfile_p.startswith('.'):  # Skip hidden/system files like .DS_Store
-        continue
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
-        continue
-    for subfile in sorted(os.listdir(now_path_p)):
-        if subfile.startswith('.'):  # Skip hidden/system files like .DS_Store
+# Run over all subject folders under fileRoot, or one ONLY_SUBJECT if set
+if ONLY_SUBJECT is not None:
+    subfile_p, subfile = parse_buaa_my_folder(ONLY_SUBJECT)
+    if subfile_p is None:
+        print('Invalid ONLY_SUBJECT (expected e.g. "Sub_10lux 15.8"):', ONLY_SUBJECT)
+    else:
+        print('Single-subject mode:', ONLY_SUBJECT)
+        process_subject(ONLY_SUBJECT, subfile_p, subfile)
+else:
+    for subfile_p in sorted(os.listdir(fileRoot)):
+        if subfile_p.startswith('.'):  # Skip hidden/system files like .DS_Store
             continue
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
+        now_path_p = os.path.join(fileRoot, subfile_p)
+        if not os.path.isdir(now_path_p):
             continue
-        avi_name = get_file(now_path, 'avi')
-        if not avi_name:
-            continue
-        video_path = os.path.join(now_path, avi_name)
-        # Landmarks are in BUAA_my (e.g. Sub_01lux 10.0/Label/RGB_lmk.csv), not in original BUAA
-        buaa_my_folder = f"{subfile_p}{subfile}"  # e.g. Sub_01 + "lux 10.0" -> Sub_01lux 10.0
-        lmk_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Label', 'RGB_lmk.csv')
-        if not os.path.isfile(lmk_path):
-            print('  Skip (no Label/RGB_lmk.csv in BUAA_my):', lmk_path)
-            continue
-        align_path = os.path.join(now_path, 'Align')
-        mask_path = os.path.join(now_path, 'Mask')
-
-        # Mirror aligned PNGs into BUAA_my: Sub_numluxnum/Align/
-        buaa_align_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Align')
-
-        print(now_path, '->', buaa_align_path)
-        process_video(now_path, video_path, lmk_path, align_path, mask_path, buaa_align_path=buaa_align_path)
+        for subfile in sorted(os.listdir(now_path_p)):
+            if subfile.startswith('.'):  # Skip hidden/system files like .DS_Store
+                continue
+            now_path = os.path.join(now_path_p, subfile)
+            if not os.path.isdir(now_path):
+                continue
+            buaa_my_folder = f"{subfile_p}{subfile}"  # e.g. Sub_01 + "lux 10.0" -> Sub_01lux 10.0
+            process_subject(buaa_my_folder, subfile_p, subfile)
 
 # %%

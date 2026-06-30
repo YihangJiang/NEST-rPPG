@@ -13,12 +13,16 @@ Functions moved from eval_from_bvp.py so they can be reused:
 """
 import os
 import csv
+from functools import lru_cache
 from typing import List, Optional, Dict, Any, Tuple
 
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import scipy.io as scio
 from scipy import signal as scipy_signal
+from scipy.ndimage import convolve1d
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -27,12 +31,52 @@ FS_BVP = 30  # BVP sampling rate [Hz] in .mat (raw segments)
 HR_FREQ_LOW, HR_FREQ_HIGH = 0.7, 3.0  # HR band [Hz] for FFT peak
 
 
+@lru_cache(maxsize=32)
+def _fir_bandpass_coefs(sig_len: int, fs: float) -> np.ndarray:
+    n = max(round(sig_len / 10), 1)
+    return scipy_signal.firwin(n + 1, [0.8, 3.0], pass_zero=False, fs=fs)
+
+
 def bpfilter64(sig: np.ndarray, fs: float) -> np.ndarray:
-    """Bandpass filter [0.8, 3] Hz using FIR (Hamming), filtfilt."""
-    sig = np.asarray(sig, dtype=float).ravel()
-    n = max(round(len(sig) / 10), 1)
-    b = scipy_signal.firwin(n + 1, [0.8, 3.0], pass_zero=False, fs=fs)
-    return scipy_signal.filtfilt(b, 1.0, sig)
+    """Bandpass filter [0.8, 3] Hz using FIR (Hamming), forward-backward convolve."""
+    sig = np.asarray(sig, dtype=float)
+    single = sig.ndim == 1
+    if single:
+        sig = sig[None, :]
+    b = _fir_bandpass_coefs(sig.shape[-1], float(fs))
+    # scipy.signal.filtfilt can hang with recent SciPy/NumPy; convolve1d is equivalent here.
+    filtered = convolve1d(sig, b, axis=-1, mode="nearest")
+    filtered = convolve1d(filtered[..., ::-1], b, axis=-1, mode="nearest")[..., ::-1]
+    return filtered[0] if single else filtered
+
+
+def hr_from_fft_batch(signals: np.ndarray, fs: float = FS_BVP) -> np.ndarray:
+    """
+    Heart rate from FFT for one or many 1D segments.
+    signals: shape (T,) or (N, T) -> returns scalar BPM or (N,) array.
+    CPU-only (NumPy/SciPy); no GPU used.
+    """
+    signals = np.asarray(signals, dtype=float)
+    if signals.ndim == 1:
+        signals = signals[None, :]
+    n_seg, n = signals.shape
+    if n < 64:
+        return np.full(n_seg, np.nan)
+
+    filtered = bpfilter64(signals, fs)
+    filtered = filtered - filtered.mean(axis=-1, keepdims=True)
+    filtered = filtered / (filtered.std(axis=-1, keepdims=True) + 1e-12)
+    fft_vals = np.fft.rfft(filtered, axis=-1)
+    freqs = np.fft.rfftfreq(n, 1.0 / fs)
+    power = np.abs(fft_vals) ** 2
+    mask = (freqs >= HR_FREQ_LOW) & (freqs <= HR_FREQ_HIGH)
+    if not np.any(mask):
+        return np.full(n_seg, np.nan)
+
+    power_band = power[:, mask]
+    freqs_band = freqs[mask]
+    idx_max = np.argmax(power_band, axis=-1)
+    return freqs_band[idx_max] * 60.0
 
 
 def hr_from_fft(signal_1d: np.ndarray, fs: float = FS_BVP) -> float:
@@ -40,36 +84,22 @@ def hr_from_fft(signal_1d: np.ndarray, fs: float = FS_BVP) -> float:
     Heart rate from FFT: bandpass filter, then peak frequency in [HR_FREQ_LOW, HR_FREQ_HIGH] Hz.
     Returns HR in BPM, or np.nan if signal too short or no valid peak.
     """
-    signal_1d = np.asarray(signal_1d, dtype=float).ravel()
-    n = len(signal_1d)
-    if n < 64:
-        return np.nan
-    filtered = bpfilter64(signal_1d, fs)
-    filtered = (filtered - np.mean(filtered)) / (np.std(filtered) + 1e-12)
-    # FFT (real signal -> rfft)
-    fft_vals = np.fft.rfft(filtered)
-    freqs = np.fft.rfftfreq(n, 1.0 / fs)
-    power = np.abs(fft_vals) ** 2
-    mask = (freqs >= HR_FREQ_LOW) & (freqs <= HR_FREQ_HIGH)
-    if not np.any(mask):
-        return np.nan
-    idx_max = np.argmax(power[mask])
-    f_peak = freqs[mask][idx_max]
-    return float(f_peak * 60.0)  # Hz -> BPM
+    hr = hr_from_fft_batch(signal_1d, fs=fs)
+    return float(hr[0]) if hr.size else np.nan
 
 
 def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
-    """Matches MyEval.m: me, E_std, mae, rmse, mer."""
+    """Matches MyEval.m: me, E_std, mae, rmse."""
     hr_pr = np.asarray(hr_pr).ravel()
     hr_gt = np.asarray(hr_gt).ravel()
     n = len(hr_pr)
     if n != len(hr_gt) or n == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan
     temp = hr_pr - hr_gt
     valid = ~(np.isnan(hr_pr) | np.isnan(hr_gt))
     n_valid = np.sum(valid)
     if n_valid == 0:
-        return np.nan, np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan
     # ME: mean error
     me = float(np.nanmean(temp)) if n_valid > 0 else np.nan
     # E_std: std of error
@@ -78,10 +108,14 @@ def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
     mae = float(np.nanmean(np.abs(temp))) if n_valid > 0 else np.nan
     # RMSE: root mean squared error
     rmse = float(np.sqrt(np.nanmean(temp * temp))) if n_valid > 0 else np.nan
-    # MER: mean absolute relative error
-    mer = np.abs(temp) / (hr_gt + 0.01)
-    mer = float(np.nanmean(mer)) if n_valid > 0 else np.nan
-    return me, e_std, mae, rmse, mer
+    return me, e_std, mae, rmse
+
+
+@lru_cache(maxsize=256)
+def _load_bvp_full(bvp_path: str) -> np.ndarray:
+    """Load full BVP trace once per subject (cached for index scans)."""
+    bvp = scio.loadmat(bvp_path)["BVP"]
+    return np.array(bvp, dtype=np.float32).reshape(-1)
 
 
 def _load_bvp_segment(now_path: str, step_index: int, frames_num: int, data_name: str) -> np.ndarray:
@@ -93,8 +127,7 @@ def _load_bvp_segment(now_path: str, step_index: int, frames_num: int, data_name
         or data_name in ("PURE", "UBFC", "BUAA")
     ):
         bvp_path = os.path.join(now_path, "Label", "BVP.mat")
-        bvp = scio.loadmat(bvp_path)["BVP"]
-        bvp = np.array(bvp, dtype=np.float32).reshape(-1)
+        bvp = _load_bvp_full(bvp_path)
         bvp = bvp[step_index: step_index + frames_num]
         bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
         return bvp.astype(np.float32)
@@ -140,12 +173,11 @@ def gt_hr_segments_from_index(
         raise FileNotFoundError(f"Index dir not found: {index_dir}")
 
     segments: List[Dict[str, Any]] = []
-    for fname in sorted(os.listdir(index_dir)):
-        if not fname.endswith(".mat"):
-            continue
+    index_files = sorted(f for f in os.listdir(index_dir) if f.endswith(".mat"))
+    for fname in tqdm(index_files, desc=f"Index HR ({os.path.basename(index_dir)})", unit="clip"):
         temp = scio.loadmat(os.path.join(index_dir, fname))
         now_path = str(temp["Path"][0])
-        step_index = int(temp["Step_Index"])
+        step_index = int(np.asarray(temp["Step_Index"]).flat[0])
         bvp = _load_bvp_segment(now_path, step_index, frames_num, data_name)
         hr_bpm = hr_from_fft(bvp, fs=FS_BVP)
         segments.append({
@@ -198,7 +230,7 @@ def eval_mean_guessing_baseline(
     test_segments = gt_hr_segments_from_index(test_index_dir, target_domain, frames_num)
     test_hr_gt, n_test_segments, n_test_subjects = subject_mean_hr_from_segments(test_segments)
     hr_pr = np.full_like(test_hr_gt, train_mean_hr)
-    me, std, mae, rmse, mer = my_eval(hr_pr, test_hr_gt)
+    me, std, mae, rmse = my_eval(hr_pr, test_hr_gt)
     return {
         "train_domain": source_domain,
         "test_domain": target_domain,
@@ -210,7 +242,6 @@ def eval_mean_guessing_baseline(
         "Std": std,
         "MAE": mae,
         "RMSE": rmse,
-        "MER": mer,
     }
 
 
@@ -218,10 +249,11 @@ def run_eval(
     save_path: str,
     *,
     return_details: bool = False,
+    verbose: bool = True,
 ) -> Dict[str, Dict[str, Any]] | Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """
     Load gt/pr .mat pairs, compute FFT heart rate per segment (no interpolation, fs=FS_BVP).
-    Average HR per subject, then compute ME, Std, MAE, RMSE, MER.
+    Average HR per subject, then compute ME, Std, MAE, RMSE.
     save_path: directory with '*gt_Wave.mat' and '*pr_Wave.mat' pairs (e.g. Wave_sort/PURE).
     """
     save_path = os.path.abspath(save_path)
@@ -247,9 +279,10 @@ def run_eval(
         "subjects": [],  # list of per-subject dicts (with per-segment arrays)
         "rows": [],      # flat rows for CSV writing (subject_id, segment_idx, hr_gt, hr_pr, err)
     }
-    print(common_ids)
     print(f"Found {len(common_ids)} subject pairs. Computing FFT HR only (fs={FS_BVP} Hz, no interpolation)...")
-    for sid in tqdm(common_ids, desc="Subjects", unit="subject"):
+    if verbose:
+        print(f"Subjects: {common_ids}")
+    for sid in tqdm(common_ids, desc="Subjects", unit="subject", disable=not verbose):
         gt_mat = scio.loadmat(os.path.join(save_path, gt_by_id[sid]))
         pr_mat = scio.loadmat(os.path.join(save_path, pr_by_id[sid]))
         Wave_gt = np.squeeze(gt_mat["Wave"])
@@ -264,11 +297,11 @@ def run_eval(
             continue
         hr_pr_list: List[float] = []
         hr_gt_list: List[float] = []
+        hr_pr_arr = hr_from_fft_batch(np.asarray(Wave_pr, dtype=float), fs=FS_BVP)
+        hr_gt_arr = hr_from_fft_batch(np.asarray(Wave_gt, dtype=float), fs=FS_BVP)
         for n in range(num):
-            wave_pr_one = np.asarray(Wave_pr[n, :], dtype=float)
-            wave_gt_one = np.asarray(Wave_gt[n, :], dtype=float)
-            hr_pr_n = hr_from_fft(wave_pr_one, fs=FS_BVP)
-            hr_gt_n = hr_from_fft(wave_gt_one, fs=FS_BVP)
+            hr_pr_n = float(hr_pr_arr[n])
+            hr_gt_n = float(hr_gt_arr[n])
             hr_pr_list.append(hr_pr_n)
             hr_gt_list.append(hr_gt_n)
             details["rows"].append({
@@ -300,8 +333,8 @@ def run_eval(
 
     hr_pr = np.array(hr_pr_per_subject)
     hr_gt = np.array(hr_gt_per_subject)
-    me, e_std, mae, rmse, mer = my_eval(hr_pr, hr_gt)
-    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse, "MER": mer}}
+    me, e_std, mae, rmse = my_eval(hr_pr, hr_gt)
+    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse}}
     if return_details:
         details["hr_gt_subject_mean_bpm"] = hr_gt
         details["hr_pr_subject_mean_bpm"] = hr_pr
@@ -341,6 +374,9 @@ def plot_subject_error_bars(
         return abs(mean_e) if np.isfinite(mean_e) else float("inf")
 
     subjects = sorted(subjects, key=key_fn, reverse=True)
+    n_total = len(subjects)
+    if top_k is None and n_total > 40:
+        top_k = 40
     if top_k is not None:
         subjects = subjects[: int(top_k)]
 
@@ -348,23 +384,32 @@ def plot_subject_error_bars(
     mean_err = np.array([s.get("mean_err_bpm", np.nan) for s in subjects], dtype=float)
     med_err = np.array([s.get("median_err_bpm", np.nan) for s in subjects], dtype=float)
 
-    x = np.arange(len(ids))
+    n = len(ids)
+    fig_w = max(figsize[0], min(48.0, 0.22 * n))
+    fig_h = figsize[1]
+    x = np.arange(n)
     w = 0.42
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    fig, ax = plt.subplots(1, 1, figsize=(fig_w, fig_h))
     ax.bar(x - w / 2, mean_err, width=w, label="Mean error (BPM)")
     ax.bar(x + w / 2, med_err, width=w, label="Median error (BPM)")
     ax.axhline(0.0, color="k", linewidth=1.0, alpha=0.5)
     ax.set_xticks(x)
-    ax.set_xticklabels(ids, rotation=60, ha="right")
+    label_fs = max(5, min(8, 200 // max(n, 1)))
+    ax.set_xticklabels(ids, rotation=90, ha="center", fontsize=label_fs)
     ax.set_ylabel("Error (Pred - GT) [BPM]")
     ax.legend()
     ax.grid(True, axis="y", alpha=0.25)
-    ax.set_title(title or "Per-subject error summary (segment HR)")
+    plot_title = title or "Per-subject error summary (segment HR)"
+    if top_k is not None and n_total > n:
+        plot_title += f" (top {n} of {n_total} subjects)"
+    ax.set_title(plot_title)
     plt.tight_layout()
 
     if save_path is not None:
         os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
-        fig.savefig(save_path, dpi=150)
+        save_dpi = 100 if n > 30 else 150
+        fig.savefig(save_path, dpi=save_dpi, bbox_inches="tight")
+        plt.close(fig)
     return fig, ax
 
 
@@ -754,6 +799,7 @@ def visualize_mat_waves(
     figsize: tuple = (12, 4),
     fs: float = 30.0,
     vis_run_name: Optional[str] = None,
+    show: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Visualize BVP waves from Wave_sort .mat files (gt vs predicted).
@@ -866,7 +912,10 @@ def visualize_mat_waves(
             seg_str = "_join(str(s) for s in segs)"
             fig_path = os.path.join(subject_vis_dir, f"segments_{seg_str}.png")
             fig.savefig(fig_path, dpi=150)
-        plt.show()
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
 
     return pairs_raw
 

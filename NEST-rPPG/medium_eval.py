@@ -32,20 +32,19 @@ print(f"Segments: {hr_gt.size}")
 # %%
 # Segment-level: predict median for every segment
 hr_pr = np.full_like(hr_gt, median_hr)
-me, std, mae, rmse, mer = my_eval(hr_pr, hr_gt)
+me, std, mae, rmse = my_eval(hr_pr, hr_gt)
 
 print("Segment-level (all rows in CSV)")
 print(f"  ME:   {me:.6f}")
 print(f"  Std:  {std:.6f}")
 print(f"  MAE:  {mae:.6f}")
 print(f"  RMSE: {rmse:.6f}")
-print(f"  MER:  {mer:.6f}")
 
 # %%
 # Subject-level: same protocol as eval_from_bvp.py (mean HR per subject)
 subj_gt = df.loc[valid].groupby("subject_id")["hr_gt_bpm"].mean().to_numpy(dtype=float)
 subj_pr = np.full_like(subj_gt, median_hr)
-subj_me, subj_std, subj_mae, subj_rmse, subj_mer = my_eval(subj_pr, subj_gt)
+subj_me, subj_std, subj_mae, subj_rmse = my_eval(subj_pr, subj_gt)
 
 print(f"Subjects: {subj_gt.size}")
 print("Subject-level (mean HR per subject)")
@@ -53,6 +52,5 @@ print(f"  ME:   {subj_me:.6f}")
 print(f"  Std:  {subj_std:.6f}")
 print(f"  MAE:  {subj_mae:.6f}")
 print(f"  RMSE: {subj_rmse:.6f}")
-print(f"  MER:  {subj_mer:.6f}")
 
 # %%

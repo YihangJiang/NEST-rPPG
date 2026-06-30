@@ -155,7 +155,7 @@ class Data_DG(Dataset):
         nowPath = os.path.join(self.root_dir, self.datalist[idx])
         temp = scio.loadmat(nowPath)
         nowPath = str(temp['Path'][0])
-        Step_Index = int(temp['Step_Index'])
+        Step_Index = int(np.asarray(temp['Step_Index']).flat[0])
         # get HR value and bvp signal
         gt, bvp = self.getLabel(nowPath, Step_Index)
         # get STMap

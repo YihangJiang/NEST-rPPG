@@ -4,7 +4,7 @@
 # Region-aware (ROI) training: train on multiple region domains (e.g. cheek, target, eye),
 # test on a different dataset/region. Source regions and test domain come from config.
 # Run as script: python train_regions.py
-# Run in Jupyter: execute cells in order (Cell 1 = config, Cell 2 = rest or run all)
+# Run in Jupyter: execute cells in order; Cell 6 runs eval when _USE_JUPYTER_CONFIG=True
 # %reload_ext autoreload
 # %autoreload 2
 
@@ -37,12 +37,12 @@ import config
 # %%
 # ============ Cell 1: Config (constants) ============
 # True = use constants below (Jupyter). False = use command-line args (python train_my.py ...).
-_USE_JUPYTER_CONFIG = False
+_USE_JUPYTER_CONFIG = True
+NUM_WORKERS = 2
 
 if _USE_JUPYTER_CONFIG:
     args = SimpleNamespace(
         GPU='0',
-        num_workers=2,
         epochs=50,
         batchsize=100,
         lr=0.001,
@@ -61,7 +61,7 @@ if _USE_JUPYTER_CONFIG:
         # Save per-subject feature representations (av) during training
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0.01,
+        weight_info=0,
         tau_info=0.07,
         regions='all',
         grad_clip=5.0,
@@ -80,11 +80,11 @@ else:
         args.index_root = config.STMAP_INDEX_BASE
     if not hasattr(args, 'max_iter'):
         args.max_iter = 1000
-    if not hasattr(args, 'loss_type'):
+    if not hasattr(args, 'loss_type') or args.loss_type is None:
         args.loss_type = config.LOSS_TYPE
     if not hasattr(args, 'save_features'):
         args.save_features = False
-    if not hasattr(args, 'tau_info'):
+    if not hasattr(args, 'tau_info') or args.tau_info is None:
         args.tau_info = 0.07
     if not hasattr(args, 'seed'):
         args.seed = 0
@@ -110,15 +110,18 @@ def _set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+_set_seed(args.seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
 def _worker_init_fn(worker_id):
-    """Deterministic DataLoader worker: seed per worker so augmentation order is reproducible."""
+    """Seed each DataLoader worker for reproducible augmentation."""
     base_seed = int(getattr(args, 'seed', 0))
     random.seed(base_seed + worker_id)
     np.random.seed(base_seed + worker_id)
 
-_set_seed(args.seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+
 print("  Random seed:", args.seed, "(deterministic training)")
 print("  weight_info:", getattr(args, "weight_info", 0.0))
 print("  regions:", getattr(args, "regions", "all"))
@@ -171,11 +174,10 @@ target_index_dir = os.path.join(index_root, tgt_domain)
 
 frames_num = args.frames_num
 batch_size = args.batchsize
-num_workers = args.num_workers
+num_workers = NUM_WORKERS
 GPU = args.GPU
 
 print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
-print("  base_src      :", base_src)
 print("  tgt_domain    :", tgt_domain)
 print("  source_domain :", source_domain)
 print("  weight_info   :", getattr(args, "weight_info", 0.0))
@@ -263,21 +265,14 @@ target_db = MyDataset.Data_DG(
 print("  baseline source dataset:", source_domain, "num_samples =", len(source_db))
 print("  baseline test dataset  :", tgt_domain, "num_samples =", len(target_db))
 
-print("Creating DataLoaders (baseline like train.py)...")
+print("Creating DataLoaders (batch_size=%d, num_workers=%d)..." % (batch_size, num_workers))
 # Fixed generator so shuffle order is reproducible across runs
 _generator = torch.Generator().manual_seed(args.seed)
-_dl_kwargs = dict(
-    batch_size=batch_size,
-    num_workers=num_workers,
-    worker_init_fn=_worker_init_fn,
-    persistent_workers=num_workers > 0,
-)
+_dl_kwargs = dict(batch_size=batch_size, num_workers=num_workers, worker_init_fn=_worker_init_fn)
 src_loader = DataLoader(
     source_db, shuffle=True, generator=_generator, **_dl_kwargs
 )
 tgt_loader = DataLoader(target_db, shuffle=False, **_dl_kwargs)
-
-# Dataloaders for pos/neg domains
 pos_loader = DataLoader(pos_db, shuffle=False, **_dl_kwargs)
 neg_loader = DataLoader(neg_db, shuffle=False, **_dl_kwargs)
 
@@ -294,17 +289,16 @@ else:
     device = torch.device('cpu')
     print('Using CPU')
 
-BaseNet = model.BaseNet()
-# BaseNet = model.BaseNetResSkip()
+BaseNet = model.BaseNet().to(device=device)
+# BaseNet = model.BaseNetResSkip().to(device=device)
 
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
-loss_func_NP = MyLoss.P_loss3()
-loss_func_L1 = nn.L1Loss()
-loss_func_NEST_CM = MyLoss.NEST_CM()
-loss_func_NEST_DM = MyLoss.NEST_DM()
-loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8)
-# SP_loss allocates CUDA tensors in __init__; created after DataLoader workers fork.
-loss_func_SP = None
+loss_func_NP = MyLoss.P_loss3().to(device)
+loss_func_L1 = nn.L1Loss().to(device)
+loss_func_SP = MyLoss.SP_loss(device, clip_length=frames_num).to(device)
+loss_func_NEST_CM = MyLoss.NEST_CM().to(device)
+loss_func_NEST_DM = MyLoss.NEST_DM().to(device)
+loss_func_NEST_TA = MyLoss.NEST_TA(device, Num_ref=8).to(device)
 
 # Logging & model name (use config paths)
 os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
@@ -316,6 +310,9 @@ rPPGNet_name = config.build_run_name(
     src=source_domain,
     weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
+_run_suffix = os.environ.get('NEST_TRAIN_REGIONS_RUN_SUFFIX')
+if _run_suffix:
+    rPPGNet_name = f"{rPPGNet_name}_{_run_suffix}"
 
 log = Logger()
 log_path = os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt')
@@ -335,6 +332,7 @@ log.write("  Source domains:    %s\n" % Source_domain_Names)
 for i, d in enumerate(Source_domain_Names):
     log.write("    [%d] %s -> %s\n" % (i, d, source_index_dir))
 log.write("  Batch size:        %s\n" % batch_size)
+log.write("  Num workers:       %s\n" % num_workers)
 log.write("  Max iterations:    %s\n" % args.max_iter)
 log.write("  Frames per clip:   %s\n" % frames_num)
 log.write("  Loss type:         %s\n" % getattr(args, 'loss_type', config.LOSS_TYPE))
@@ -343,48 +341,41 @@ log.write("  Model:             %s\n" % BaseNet.__class__.__name__)
 log.write("  Source samples:    %s  (target: %d)\n" % (total_src_samples, len(target_db)))
 log.write("  Log file:          %s\n" % log_path)
 log.write("=" * 60 + "\n\n")
-mlflow_utils.setup(
-    args,
-    experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
-    run_name=rPPGNet_name,
-    tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain},
-)
-mlflow_utils.log_params({
-    'source_domain': source_domain,
-    'target_domain': tgt_domain,
-    'pos_domain': pos_domain,
-    'neg_domain': neg_domain,
-    'weight_info': float(getattr(args, 'weight_info', 0.0)),
-    'regions': str(getattr(args, 'regions', 'all')),
-    'loss_type': getattr(args, 'loss_type', config.LOSS_TYPE),
-    'lr': args.lr,
-    'batchsize': batch_size,
-    'max_iter': args.max_iter,
-    'frames_num': frames_num,
-    'seed': args.seed,
-    'grad_clip': float(args.grad_clip),
-})
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.setup(
+        args,
+        experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
+        run_name=rPPGNet_name,
+        tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain},
+    )
+    mlflow_utils.log_params({
+        'source_domain': source_domain,
+        'target_domain': tgt_domain,
+        'pos_domain': pos_domain,
+        'neg_domain': neg_domain,
+        'weight_info': float(getattr(args, 'weight_info', 0.0)),
+        'tau_info': float(getattr(args, 'tau_info', 0.07)),
+        'regions': str(getattr(args, 'regions', 'all')),
+        'loss_type': getattr(args, 'loss_type', config.LOSS_TYPE),
+        'lr': args.lr,
+        'batchsize': batch_size,
+        'max_iter': args.max_iter,
+        'frames_num': frames_num,
+        'seed': args.seed,
+        'grad_clip': float(args.grad_clip),
+    })
 
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
-# Fork DataLoader workers before CUDA init (avoids fork-after-CUDA deadlock).
+BaseNet.train()
+start = timer()
+# max_iter = 200
+max_iter = args.max_iter
+
 src_iter = iter(src_loader)
 src_iter_per_epoch = len(src_iter)
 pos_iter = iter(pos_loader)
 neg_iter = iter(neg_loader)
-iter(tgt_loader)
-
-BaseNet = BaseNet.to(device=device)
-loss_func_NP = loss_func_NP.to(device)
-loss_func_L1 = loss_func_L1.to(device)
-loss_func_SP = MyLoss.SP_loss(device, clip_length=frames_num).to(device)
-loss_func_NEST_CM = loss_func_NEST_CM.to(device)
-loss_func_NEST_DM = loss_func_NEST_DM.to(device)
-loss_func_NEST_TA = loss_func_NEST_TA.to(device)
-
-BaseNet.train()
-start = timer()
-max_iter = args.max_iter
 
 _printed_nan_debug = False
 
@@ -441,7 +432,7 @@ for iter_num in range(max_iter + 1):
     if use_align:
         # InfoNCE-style alignment: per sample i, softmax over paired pos vs paired neg only (q·k_pos[i], q·k_neg[i]).
         m = av.shape[0]
-        tau = float(getattr(args, 'tau_info', 0.07))
+        tau = float(getattr(args, 'tau_info', 0.05))
         q = F.normalize(av, dim=1)
         k_pos = F.normalize(av_pos[:m], dim=1)
         k_neg = F.normalize(av_neg[:m], dim=1)
@@ -453,7 +444,7 @@ for iter_num in range(max_iter + 1):
         elif regions_mode == "pos":
             logits = torch.cat([pos_scores], dim=1)
         else:
-            logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2)
+            logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2m)
         labels = torch.zeros(m, dtype=torch.long, device=logits.device)
         # labels = torch.arange(m, device=logits.device)
         align_pos_loss = F.cross_entropy(logits, labels)
@@ -571,8 +562,10 @@ BVP_ALL = []
 BVP_PR_ALL = []
 nan_debug_saved = False
 
+print("Inferencing on target domain...")
 with torch.no_grad():
     for step, (data, bvp, HR_rel, _, _, _, paths) in enumerate(tgt_loader):
+        print(step)
         data = Variable(data).float().to(device=device)
         bvp = Variable(bvp).float().to(device=device)
         HR_rel = Variable(HR_rel).float().to(device=device)
@@ -606,8 +599,9 @@ io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_HR_rel.mat'), {'HR_r
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_ALL.mat'), {'Wave': BVP_ALL})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
 
-mlflow_utils.log_model(BaseNet)
-print('Saved model to MLflow run:', mlflow_utils.get_run_id())
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.log_model(BaseNet)
+    print('Saved model to MLflow run:', mlflow_utils.get_run_id())
 
 wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
@@ -631,6 +625,8 @@ try:
                 "source_domain": source_domain,
                 "target_domain": tgt_domain,
                 "weight_info": float(getattr(args, "weight_info", 0.0)),
+                "tau_info": float(getattr(args, "tau_info", 0.07)),
+                "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
                 "regions": str(getattr(args, "regions", "all")),
             },
             f,
@@ -640,7 +636,64 @@ try:
 except Exception as e:
     print("Warning: failed to write last_train_regions_meta.json:", repr(e))
 
-mlflow_utils.log_artifacts([log_path, meta_path])
-mlflow_utils.end_run()
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.log_artifacts([log_path, meta_path])
+    mlflow_utils.end_run()
+
+# %%
+# ============ Cell 6: Eval (Jupyter only) ============
+print("Evaluating...")
+if _USE_JUPYTER_CONFIG:
+    from utils.eval_utils import (
+        run_eval,
+        write_segment_errors_csv,
+        append_regions_eval_summary_csv,
+    )
+
+    eval_save_path = os.path.abspath(wave_sort_out)
+    print(f"Evaluating Wave_sort path: {eval_save_path}")
+
+    result, details = run_eval(eval_save_path, return_details=True)
+
+    feature_dir = os.path.join(eval_save_path, "feature")
+    os.makedirs(feature_dir, exist_ok=True)
+
+    csv_path = os.path.join(feature_dir, "segment_errors.csv")
+    write_segment_errors_csv(details, csv_path)
+    print(f"Saved segment errors CSV: {csv_path}")
+
+    json_path = os.path.join(feature_dir, "eval_result.json")
+    payload = {
+        "save_path": eval_save_path,
+        "source_domain": source_domain,
+        "target_domain": tgt_domain,
+        "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
+        "regions": str(getattr(args, "regions", "all")),
+        "result": result,
+    }
+    with open(json_path, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"Updated eval summary JSON with regions: {json_path}")
+
+    summary_csv = os.path.join(config.RESULT_LOG_DIR, "regions_eval_summary.csv")
+    append_regions_eval_summary_csv(
+        summary_csv,
+        source_domain=source_domain,
+        target_domain=tgt_domain,
+        weight=float(getattr(args, "weight_info", 0.0)),
+        regions=str(getattr(args, "regions", "all")),
+        result=result,
+    )
+    print(f"Appended regions eval summary row: {summary_csv}")
+
+    print(f"Source domain: {source_domain}")
+    print(f"Target domain: {tgt_domain}")
+    print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE")
+    print("-" * 80)
+    for name, metrics in result.items():
+        print(
+            f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
+            f"{metrics['RMSE']:.6f}"
+        )
 
 # %%

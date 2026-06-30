@@ -18,10 +18,13 @@ from scipy import signal
 
 # %%
 # Config: set paths for your environment (edit and run this cell first)
-fileRoot = '/mnt/nvme2/rppg_data/BUAA_RM'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_IN'
 STMap_name = 'STMap_RGB.png'
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_rm'))
+BUAA_MY_ROOT = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_in'))
+
+# Single-subject mode: set e.g. "Sub_10lux 15.8". Set to None for all subjects (batch).
+ONLY_SUBJECT = "Sub_10lux 15.8"
 
 # %%
 def PointRotate(angle, valuex, valuey, pointx, pointy):
@@ -116,42 +119,55 @@ def mySTMap(imglist_root, lmk_all=[]):
     return STMap
 
 
+def process_subject(buaa_my_folder):
+    """Build STMap for one BUAA_my folder from Align/ + Label/RGB_lmk.csv."""
+    lmk_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Label', 'RGB_lmk.csv')
+    rgb_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Align')
+    stmap_dir = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'STMap')
+
+    if not os.path.isfile(lmk_path):
+        print('  Skip (no Label/RGB_lmk.csv):', lmk_path)
+        return False
+    if not os.path.isdir(rgb_path):
+        print('  Skip (no Align folder):', rgb_path)
+        return False
+
+    os.makedirs(stmap_dir, exist_ok=True)
+    lmk_all = []
+    with open(lmk_path, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        for line in reader:
+            lmk_all.append(line)
+
+    stmap = mySTMap(rgb_path, lmk_all=lmk_all)
+    out_path = os.path.join(stmap_dir, STMap_name)
+    cv2.imwrite(out_path, stmap, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+    print('  ->', out_path, f'(width={stmap.shape[1]})')
+    return True
+
+
 # %%
 # Run STMap generation: read Align + Label from BUAA_my, write STMap to BUAA_my
-z = 0
-for subfile_p in sorted(os.listdir(fileRoot)):
-    if subfile_p.startswith('.'):  # Skip hidden/system files like .DS_Store
-        continue
-    now_path_p = os.path.join(fileRoot, subfile_p)
-    if not os.path.isdir(now_path_p):
-        continue
-    for subfile in sorted(os.listdir(now_path_p)):
-        if subfile.startswith('.'):  # Skip hidden/system files like .DS_Store
+if ONLY_SUBJECT is not None:
+    print('Single-subject mode:', ONLY_SUBJECT)
+    process_subject(ONLY_SUBJECT)
+else:
+    z = 0
+    for subfile_p in sorted(os.listdir(fileRoot)):
+        if subfile_p.startswith('.'):  # Skip hidden/system files like .DS_Store
             continue
-        now_path = os.path.join(now_path_p, subfile)
-        if not os.path.isdir(now_path):
+        now_path_p = os.path.join(fileRoot, subfile_p)
+        if not os.path.isdir(now_path_p):
             continue
-        buaa_my_folder = f"{subfile_p}{subfile}"
-        lmk_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Label', 'RGB_lmk.csv')
-        RGB_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'Align')
-        STMap_path = os.path.join(BUAA_MY_ROOT, buaa_my_folder, 'STMap')
-        # if not os.path.exists(lmk_path):
-        #     print('  Skip (no landmarks):', lmk_path)
-        #     continue
-        # if not os.path.exists(RGB_path):
-        #     print('  Skip (no Align folder):', RGB_path)
-        #     continue
-        os.makedirs(STMap_path, exist_ok=True)
-        print(z, buaa_my_folder)
-        lmk_all = []
-        with open(lmk_path, "r") as csvfile:
-            reader = csv.reader(csvfile)
-            for line in reader:
-                lmk_all.append(line)
-        STMap = mySTMap(RGB_path, lmk_all=lmk_all)
-        out_path = os.path.join(STMap_path, STMap_name)
-        cv2.imwrite(out_path, STMap, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
-        print('  ->', out_path)
-        z += 1
+        for subfile in sorted(os.listdir(now_path_p)):
+            if subfile.startswith('.'):  # Skip hidden/system files like .DS_Store
+                continue
+            now_path = os.path.join(now_path_p, subfile)
+            if not os.path.isdir(now_path):
+                continue
+            buaa_my_folder = f"{subfile_p}{subfile}"
+            print(z, buaa_my_folder)
+            process_subject(buaa_my_folder)
+            z += 1
 
 # %%

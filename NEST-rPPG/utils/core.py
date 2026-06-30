@@ -122,6 +122,11 @@ def get_args():
                         help='the name of target domain: VIPL, COH, V4V, UBFC, PURE...')
     parser.add_argument('--weight_info', dest='weight_info', type=float, default=0.01,
                         help='Weight for InfoNCE alignment loss (0 disables alignment)')
+    parser.add_argument('--tau-info', dest='tau_info', type=float, default=None,
+                        help='InfoNCE temperature (default: 0.07)')
+    parser.add_argument('--loss-type', dest='loss_type', type=str, default=None,
+                        choices=['One', 'TA', 'CM', 'DM', 'All'],
+                        help='NEST loss type: One / TA / CM / DM / All')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
     parser.add_argument('--regions', dest='regions', type=str, default='all',
@@ -145,17 +150,15 @@ def MyEval(HR_pr, HR_rel):
     std = np.std(temp)
     mae = np.sum(np.abs(temp))/len(temp)
     rmse = np.sqrt(np.sum(np.power(temp, 2))/len(temp))
-    mer = np.mean(np.abs(temp) / HR_rel)
     p = np.sum((HR_pr - np.mean(HR_pr))*(HR_rel - np.mean(HR_rel))) / (
                 0.01 + np.linalg.norm(HR_pr - np.mean(HR_pr), ord=2) * np.linalg.norm(HR_rel - np.mean(HR_rel), ord=2))
     print('| me: %.4f' % me,
           '| std: %.4f' % std,
           '| mae: %.4f' % mae,
           '| rmse: %.4f' % rmse,
-          '| mer: %.4f' % mer,
           '| p: %.4f' % p
           )
-    return me, std, mae, rmse, mer, p
+    return me, std, mae, rmse, p
 
 
 def param_size(model):

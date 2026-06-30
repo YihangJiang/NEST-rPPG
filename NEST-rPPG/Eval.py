@@ -17,17 +17,15 @@ def MyEval(HR_pr, HR_rel):
     std = np.std(temp)
     mae = np.sum(np.abs(temp))/len(temp)
     rmse = np.sqrt(np.sum(np.power(temp, 2))/len(temp))
-    mer = np.mean(np.abs(temp) / HR_rel)
     p = np.sum((HR_pr - np.mean(HR_pr))*(HR_rel - np.mean(HR_rel))) / (
                 0.01 + np.linalg.norm(HR_pr - np.mean(HR_pr), ord=2) * np.linalg.norm(HR_rel - np.mean(HR_rel), ord=2))
     print('| me: %.4f' % me,
           '| std: %.4f' % std,
           '| mae: %.4f' % mae,
           '| rmse: %.4f' % rmse,
-          '| mer: %.4f' % mer,
           '| p: %.4f' % p
           )
-    return me, std, mae, rmse, mer, p
+    return me, std, mae, rmse, p
 
 if __name__ == '__main__':
 
@@ -58,7 +56,7 @@ if __name__ == '__main__':
     for HR_index in range(pr.size-1):
         temp = scio.loadmat(os.path.join(Idex_files, files_list[HR_index]))
         nowPath = str(temp['Path'][0])
-        Step_Index = int(temp['Step_Index'])
+        Step_Index = int(np.asarray(temp['Step_Index']).flat[0])
         a = pr[HR_index]
 
         if lastPath != nowPath:

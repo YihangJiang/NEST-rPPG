@@ -18,14 +18,17 @@ def get_file(dir_path, suffix):
 
 
 # Raw dataset root: fileRoot/Subject/lux_xx.xx/*.avi
-fileRoot = '/mnt/nvme2/rppg_data/BUAA_RM'
+fileRoot = '/mnt/nvme2/rppg_data/BUAA_IN'
 
 # Preprocessing output root: BUAA_my/Sub_numlux_num/Label/RGB_lmk.csv
 if '__file__' in dir():
     _script_dir = os.path.dirname(os.path.abspath(__file__))
-    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_rm'))
+    saveRoot = os.path.normpath(os.path.join(_script_dir, '..', '..', 'STMap_my', 'BUAA_my_in'))
 else:
-    saveRoot = os.path.join(os.getcwd(), 'STMap_my', 'BUAA_my_rm')
+    saveRoot = os.path.join(os.getcwd(), 'STMap_my', 'BUAA_my_in')
+
+# Single-subject mode: set e.g. "Sub_10lux 15.8". Set to None for all subjects (batch).
+ONLY_SUBJECT = "Sub_09lux 15.8"
 
 fa = face_alignment.FaceAlignment(
     face_alignment.LandmarksType.TWO_D,
@@ -57,6 +60,8 @@ for sub_name in sorted(os.listdir(fileRoot)):
 
         video_path = os.path.join(lux_dir, avi_name)
         out_folder_name = f"{sub_name}{lux_name}"  # e.g. Sub_01 + 'lux 10.0' -> 'Sub_01lux 10.0'
+        if ONLY_SUBJECT is not None and out_folder_name != ONLY_SUBJECT:
+            continue
         print(idx, out_folder_name)
         idx += 1
 
@@ -83,6 +88,7 @@ for sub_name in sorted(os.listdir(fileRoot)):
         cap.release()
 
         with open(out_csv, 'w', newline='') as csvfile:
+            print("write")
             writer = csv.writer(csvfile)
             for row in lmk:
                 writer.writerow(row)

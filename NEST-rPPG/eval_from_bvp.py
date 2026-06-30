@@ -1,7 +1,7 @@
 """
 Evaluates BVP model performance from Wave_sort .mat files (gt/pr pairs):
-heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE, MER.
-When run this script, use interpreter: mprppg
+heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE.
+When run this script, use interpreter: mpipe (or training)
 """
 # %%
 
@@ -40,17 +40,25 @@ except Exception:
     pass
 print(f"Evaluating Wave_sort path: {save_path}")
 
+# Batch runs (run_regions.sh): skip matplotlib plots unless NEST_EVAL_PLOTS=1.
+GENERATE_PLOTS = os.environ.get("NEST_EVAL_PLOTS", "0") == "1"
+if not GENERATE_PLOTS:
+    print("Skipping eval plots (set NEST_EVAL_PLOTS=1 to enable).")
+
 
 # %%
-# Optional: visualize waves before evaluation (example usage)
-pairs = visualize_mat_waves(
-    save_path,
-    segment_indices=[3, 5],
-    vis_run_name=config.LOSS_TYPE,
-)
-signal = pairs[5]["pred"]
-hr_bpm = estimate_hr_from_psd(signal, fs=FS_BVP, f_low=0.7, f_high=4.0)
-print(f"Estimated HR (Welch PSD): {hr_bpm:.2f} bpm")
+# Optional: visualize waves before evaluation (set True in Jupyter to inspect samples)
+VISUALIZE_EXAMPLE = False
+if VISUALIZE_EXAMPLE:
+    pairs = visualize_mat_waves(
+        save_path,
+        segment_indices=[3, 5],
+        vis_run_name=config.LOSS_TYPE,
+        show=True,
+    )
+    signal = pairs[5]["pred"]
+    hr_bpm = estimate_hr_from_psd(signal, fs=FS_BVP, f_low=0.7, f_high=4.0)
+    print(f"Estimated HR (Welch PSD): {hr_bpm:.2f} bpm")
 
 # %%
 # Evaluate + collect per-segment details for analysis outputs
@@ -67,35 +75,43 @@ print(f"Saved segment errors CSV: {csv_path}")
 
 # 2) Bar plot: per-subject mean/median error
 bar_path = os.path.join(feature_dir, "subject_error_bars.png")
-plot_subject_error_bars(
-    details,
-    title=f"{config.SRC_DOMAIN} -> {config.TGT_DOMAIN}",
-    save_path=bar_path,
-)
-print(f"Saved subject error bar plot: {bar_path}")
+if GENERATE_PLOTS:
+    print("Saving subject error bar plot...")
+    plot_subject_error_bars(
+        details,
+        title=f"{config.SRC_DOMAIN} -> {config.TGT_DOMAIN}",
+        save_path=bar_path,
+    )
+    print(f"Saved subject error bar plot: {bar_path}")
 
 # 2.5) Plot the worst subject by absolute error
 worst_plot_path = os.path.join(feature_dir, "worst_subject_plot.png")
-worst_sid, worst_score = plot_worst_subject_from_segment_csv(
-    csv_path,
-    metric="max_abs",
-    save_fig_path=worst_plot_path,
-    show=False,
-)
-print(f"Saved worst subject plot: {worst_plot_path}")
-print(f"Worst subject: {worst_sid} (max_abs_err={worst_score:.4g} BPM)")
+worst_sid = None
+worst_score = float("nan")
+if GENERATE_PLOTS:
+    print("Saving worst-subject plot...")
+    worst_sid, worst_score = plot_worst_subject_from_segment_csv(
+        csv_path,
+        metric="max_abs",
+        save_fig_path=worst_plot_path,
+        show=False,
+    )
+    print(f"Saved worst subject plot: {worst_plot_path}")
+    print(f"Worst subject: {worst_sid} (max_abs_err={worst_score:.4g} BPM)")
 
 # 2.6) Plot worst subject GT/Pred signals for 20 segments
 worst_signals_path = os.path.join(feature_dir, "worst_subject_signals.png")
-plot_worst_subject_signals(
-    save_path,
-    csv_path,
-    num_segments=10,
-    worst_subject_id=worst_sid,
-    save_fig_path=worst_signals_path,
-    show=False,
-)
-print(f"Saved worst subject signals plot: {worst_signals_path}")
+if GENERATE_PLOTS and worst_sid is not None:
+    print("Saving worst-subject signal plot...")
+    plot_worst_subject_signals(
+        save_path,
+        csv_path,
+        num_segments=10,
+        worst_subject_id=worst_sid,
+        save_fig_path=worst_signals_path,
+        show=False,
+    )
+    print(f"Saved worst subject signals plot: {worst_signals_path}")
 
 # 3) JSON: summary metrics + context
 json_path = os.path.join(feature_dir, "eval_result.json")
@@ -123,6 +139,7 @@ payload["regions"] = regions_for_csv
 frames_num = infer_frames_num_from_wave_sort(save_path)
 train_index_dir = os.path.join(config.STMAP_INDEX_BASE, src_for_csv)
 test_index_dir = os.path.join(config.STMAP_INDEX_BASE, tgt_for_csv)
+print(f"Computing mean-guessing baseline ({src_for_csv} -> {tgt_for_csv})...")
 mean_guess = eval_mean_guessing_baseline(
     train_index_dir,
     config.canonical_data_name(src_for_csv),
@@ -141,7 +158,6 @@ payload["mean_guessing_baseline"] = {
     "ME": mean_guess["ME"],
     "Std": mean_guess["Std"],
     "RMSE": mean_guess["RMSE"],
-    "MER": mean_guess["MER"],
 }
 
 with open(json_path, "w") as f:
@@ -165,7 +181,6 @@ if mlflow_utils.resume_run():
         'eval_Std': float(hr_metrics.get('Std', 0.0)),
         'eval_MAE': float(hr_metrics.get('MAE', 0.0)),
         'eval_RMSE': float(hr_metrics.get('RMSE', 0.0)),
-        'eval_MER': float(hr_metrics.get('MER', 0.0)),
         'eval_mean_guess_MAE': float(mean_guess['MAE']),
         'eval_mean_guess_ME': float(mean_guess['ME']),
         'eval_mean_guess_RMSE': float(mean_guess['RMSE']),
@@ -182,25 +197,22 @@ if mlflow_utils.resume_run():
         'eval_mean_guess_n_test_segments': int(mean_guess['n_test_segments']),
         'eval_mean_guess_n_test_subjects': int(mean_guess['n_test_subjects']),
     })
-    mlflow_utils.log_artifacts([
-        json_path,
-        csv_path,
-        bar_path,
-        worst_plot_path,
-        worst_signals_path,
-    ])
+    artifact_paths = [json_path, csv_path]
+    if GENERATE_PLOTS:
+        artifact_paths.extend([bar_path, worst_plot_path, worst_signals_path])
+    mlflow_utils.log_artifacts(artifact_paths)
     mlflow_utils.end_run()
     print("Logged eval metrics to MLflow run.")
 
-# Print table: ME, Std, MAE, RMSE, MER
+# Print table: ME, Std, MAE, RMSE
 print(f"Source domain: {src_for_csv}")
 print(f"Target domain: {tgt_for_csv}")
-print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER")
+print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE")
 print("-" * 80)
 for name, metrics in result.items():
     print(
         f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-        f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}"
+        f"{metrics['RMSE']:.6f}"
     )
 
 print()

@@ -47,14 +47,16 @@ MLFLOW_EXPERIMENT_NAME = os.environ.get('MLFLOW_EXPERIMENT_NAME', 'nest-rppg')
 
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'BUAA_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
-SRC_DOMAIN = 'PURE_my_rm'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'UBFC_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my_in'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
-LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
+LOSS_TYPE = 'One'         # One / TA / CM / DM / All
 WEIGHT_INFO = 0.0        # InfoNCE alignment weight (0 = disabled)
 # Grid for weight_info sweeps (each value -> separate MLflow run: ..._w<weight>)
-WEIGHT_INFO_SWEEP = (0.0, 0.001, 0.01, 0.05)
+WEIGHT_INFO_SWEEP = (0.0, 0.005, 0.01, 0.05)
+# Optuna search space (optuna_tune_regions.py)
+OPTUNA_TAU_INFO_SWEEP = (0.01, 0.02, 0.03, 0.04, 0.05)  # categorical; edit to your candidate values
 SEED = 0
 
 # Mapping from target domain to list of all possible source domains
