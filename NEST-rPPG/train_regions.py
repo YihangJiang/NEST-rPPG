@@ -37,7 +37,7 @@ import config
 # %%
 # ============ Cell 1: Config (constants) ============
 # True = use constants below (Jupyter). False = use command-line args (python train_my.py ...).
-_USE_JUPYTER_CONFIG = True
+_USE_JUPYTER_CONFIG = False
 NUM_WORKERS = 2
 
 if _USE_JUPYTER_CONFIG:
@@ -61,8 +61,8 @@ if _USE_JUPYTER_CONFIG:
         # Save per-subject feature representations (av) during training
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0,
-        tau_info=0.07,
+        weight_info=0.05,
+        tau_info=0.05,
         regions='all',
         grad_clip=5.0,
     )
@@ -449,6 +449,32 @@ for iter_num in range(max_iter + 1):
         # labels = torch.arange(m, device=logits.device)
         align_pos_loss = F.cross_entropy(logits, labels)
 
+    # if use_align:
+    #     m = av.shape[0]
+    #     tau = float(getattr(args, 'tau_info', 0.05))
+
+    #     q = F.normalize(av, dim=1)
+    #     k_pos = F.normalize(av_pos[:m], dim=1)
+    #     k_neg = F.normalize(av_neg[:m], dim=1)
+
+    #     # Mean positive prototype
+    #     k_pos_mean = F.normalize(k_pos.mean(dim=0, keepdim=True), dim=1)  # (1, d)
+
+    #     # Positive numerator: q_i dot mean positive reference
+    #     pos_mean_scores = torch.mm(q, k_pos_mean.t()) / tau  # (m, 1)
+
+    #     # Negative candidates
+    #     neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
+
+    #     # Contrastive logits: first column is positive mean, remaining columns are negatives
+    #     logits = torch.cat([pos_mean_scores, neg_scores], dim=1)  # (m, 1 + m)
+
+    #     labels = torch.zeros(m, dtype=torch.long, device=logits.device)
+
+    #     align_pos_loss = F.cross_entropy(logits, labels)
+
+
+
 
     # One-time NaN diagnostics (helps locate first NaN source)
     if not _printed_nan_debug:
@@ -648,6 +674,7 @@ if _USE_JUPYTER_CONFIG:
         run_eval,
         write_segment_errors_csv,
         append_regions_eval_summary_csv,
+        print_hr_metrics,
     )
 
     eval_save_path = os.path.abspath(wave_sort_out)
@@ -686,14 +713,6 @@ if _USE_JUPYTER_CONFIG:
     )
     print(f"Appended regions eval summary row: {summary_csv}")
 
-    print(f"Source domain: {source_domain}")
-    print(f"Target domain: {tgt_domain}")
-    print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE")
-    print("-" * 80)
-    for name, metrics in result.items():
-        print(
-            f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-            f"{metrics['RMSE']:.6f}"
-        )
+    print_hr_metrics(result, source_domain=source_domain, target_domain=tgt_domain)
 
 # %%

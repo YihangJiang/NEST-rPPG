@@ -1,6 +1,7 @@
 """
 Evaluates BVP model performance from Wave_sort .mat files (gt/pr pairs):
-heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE.
+heart rate only, from FFT on raw segments. Reports ME, Std, MAE, RMSE and
+MAE/RMSE std and standard error.
 When run this script, use interpreter: mpipe (or training)
 """
 # %%
@@ -12,8 +13,8 @@ import config
 from utils.eval_utils import (
     FS_BVP,
     hr_from_fft,
-    my_eval,
     run_eval,
+    print_hr_metrics,
     infer_frames_num_from_wave_sort,
     eval_mean_guessing_baseline,
     visualize_mat_waves,
@@ -154,10 +155,14 @@ payload["mean_guessing_baseline"] = {
     "n_train_segments": int(mean_guess["n_train_segments"]),
     "n_test_segments": int(mean_guess["n_test_segments"]),
     "n_test_subjects": int(mean_guess["n_test_subjects"]),
-    "MAE": mean_guess["MAE"],
     "ME": mean_guess["ME"],
     "Std": mean_guess["Std"],
+    "MAE": mean_guess["MAE"],
+    "MAE_Std": mean_guess["MAE_Std"],
+    "MAE_SE": mean_guess["MAE_SE"],
     "RMSE": mean_guess["RMSE"],
+    "RMSE_Std": mean_guess["RMSE_Std"],
+    "RMSE_SE": mean_guess["RMSE_SE"],
 }
 
 with open(json_path, "w") as f:
@@ -180,7 +185,11 @@ if mlflow_utils.resume_run():
         'eval_ME': float(hr_metrics.get('ME', 0.0)),
         'eval_Std': float(hr_metrics.get('Std', 0.0)),
         'eval_MAE': float(hr_metrics.get('MAE', 0.0)),
+        'eval_MAE_Std': float(hr_metrics.get('MAE_Std', 0.0)),
+        'eval_MAE_SE': float(hr_metrics.get('MAE_SE', 0.0)),
         'eval_RMSE': float(hr_metrics.get('RMSE', 0.0)),
+        'eval_RMSE_Std': float(hr_metrics.get('RMSE_Std', 0.0)),
+        'eval_RMSE_SE': float(hr_metrics.get('RMSE_SE', 0.0)),
         'eval_mean_guess_MAE': float(mean_guess['MAE']),
         'eval_mean_guess_ME': float(mean_guess['ME']),
         'eval_mean_guess_RMSE': float(mean_guess['RMSE']),
@@ -204,16 +213,7 @@ if mlflow_utils.resume_run():
     mlflow_utils.end_run()
     print("Logged eval metrics to MLflow run.")
 
-# Print table: ME, Std, MAE, RMSE
-print(f"Source domain: {src_for_csv}")
-print(f"Target domain: {tgt_for_csv}")
-print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE")
-print("-" * 80)
-for name, metrics in result.items():
-    print(
-        f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-        f"{metrics['RMSE']:.6f}"
-    )
+print_hr_metrics(result, source_domain=src_for_csv, target_domain=tgt_for_csv)
 
 print()
 print("Mean-guessing baseline (training GT mean vs test GT)")

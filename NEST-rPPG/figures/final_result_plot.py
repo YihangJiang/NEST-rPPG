@@ -120,8 +120,9 @@ def load_summary_csv(csv_path: str) -> pd.DataFrame:
     df = pd.read_csv(csv_path, skiprows=1)
     df.columns = [c.strip() for c in df.columns]
     df["Weight"] = pd.to_numeric(df["Weight"], errors="coerce")
-    for col in ("Std", "MAE", "RMSE"):
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    for col in ("Std", "MAE", "RMSE", "MAE_SE", "RMSE_SE"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
     df["Regions"] = df["Regions"].astype(str).str.strip()
     df["Source Domain"] = df["Source Domain"].astype(str).str.strip()
     df["Target domain"] = df["Target domain"].astype(str).str.strip()
@@ -176,10 +177,11 @@ def build_plot_data(df: pd.DataFrame, metric: str):
     return group_labels, values, missing
 
 
-def build_plot_data_mae_std(df: pd.DataFrame):
+def build_plot_data_with_se(df: pd.DataFrame, metric: str):
+    se_col = f"{metric}_SE"
     group_labels = []
-    mae_values = {cfg["key"]: [] for cfg in BAR_CONFIGS}
-    std_values = {cfg["key"]: [] for cfg in BAR_CONFIGS}
+    values = {cfg["key"]: [] for cfg in BAR_CONFIGS}
+    se_values = {cfg["key"]: [] for cfg in BAR_CONFIGS}
     missing = []
 
     for src_in, tgt_in, src_whole in TRANSFER_PAIRS:
@@ -194,17 +196,19 @@ def build_plot_data_mae_std(df: pd.DataFrame):
                 regions=cfg["regions"],
             )
             if row is None:
-                mae_values[cfg["key"]].append(np.nan)
-                std_values[cfg["key"]].append(np.nan)
+                values[cfg["key"]].append(np.nan)
+                se_values[cfg["key"]].append(np.nan)
                 missing.append(
                     f"{group_labels[-1]} | {cfg['label']} "
                     f"(src={source}, tgt={tgt_in}, w={cfg['weight']}, regions={cfg['regions']})"
                 )
                 continue
-            mae_values[cfg["key"]].append(float(row["MAE"]))
-            std_values[cfg["key"]].append(float(row["Std"]))
+            values[cfg["key"]].append(float(row[metric]))
+            se_values[cfg["key"]].append(
+                float(row[se_col]) if se_col in row.index and pd.notna(row[se_col]) else np.nan
+            )
 
-    return group_labels, mae_values, std_values, missing
+    return group_labels, values, se_values, missing
 
 
 def draw_grouped_bars(
@@ -289,10 +293,15 @@ def save_grouped_bar_figure(
     metric: str,
     out_path: str,
     *,
+    use_se: bool = False,
     title: str | None = None,
     show: bool = False,
 ) -> pd.DataFrame:
-    group_labels, values, missing = build_plot_data(df, metric)
+    yerr_values = None
+    if use_se:
+        group_labels, values, yerr_values, missing = build_plot_data_with_se(df, metric)
+    else:
+        group_labels, values, missing = build_plot_data(df, metric)
     if missing:
         print(f"Warning: missing CSV rows for {metric}:")
         for line in missing:
@@ -304,7 +313,9 @@ def save_grouped_bar_figure(
     )
 
     fig, ax = plt.subplots(figsize=(14, 6))
-    draw_grouped_bars(ax, group_labels, values, metric, title=title)
+    draw_grouped_bars(
+        ax, group_labels, values, metric, yerr_values=yerr_values, title=title
+    )
     plt.tight_layout()
     fig.subplots_adjust(bottom=0.18)
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -321,7 +332,7 @@ def save_grouped_bar_figure(
 
 # %%
 # ============ Config ============
-CSV_PATH = os.path.join(_BASE_DIR, "regions_eval_summary (1).csv")
+CSV_PATH = os.path.join(_BASE_DIR, "Training_Log", "regions_eval_summary.csv")
 OUT_PATH_RMSE = os.path.join(_SCRIPT_DIR, "final_result_summary.png")
 OUT_PATH_MAE_STD = os.path.join(_SCRIPT_DIR, "final_result_summary_mae_std.png")
 SHOW_PLOT = True          # False when saving only in headless runs
@@ -341,15 +352,17 @@ summary_table_rmse = save_grouped_bar_figure(
     df,
     "RMSE",
     OUT_PATH_RMSE,
+    use_se=True,
+    title="Cross-dataset HR error summary — RMSE ± SE (BPM)",
     show=SHOW_PLOT,
 )
 summary_table_rmse
 
 # %%
-# ============ MAE plot (Std as error bars) ============
-group_labels, mae_values, std_values, missing = build_plot_data_mae_std(df)
+# ============ MAE plot (SE as error bars) ============
+group_labels, mae_values, se_values, missing = build_plot_data_with_se(df, "MAE")
 if missing:
-    print("Warning: missing CSV rows for MAE/Std:")
+    print("Warning: missing CSV rows for MAE/SE:")
     for line in missing:
         print(f"  - {line}")
 
@@ -357,8 +370,8 @@ summary_table_mae = pd.DataFrame(
     {cfg["label"]: mae_values[cfg["key"]] for cfg in BAR_CONFIGS},
     index=group_labels,
 )
-summary_table_std = pd.DataFrame(
-    {cfg["label"]: std_values[cfg["key"]] for cfg in BAR_CONFIGS},
+summary_table_se = pd.DataFrame(
+    {cfg["label"]: se_values[cfg["key"]] for cfg in BAR_CONFIGS},
     index=group_labels,
 )
 
@@ -368,8 +381,8 @@ draw_grouped_bars(
     group_labels,
     mae_values,
     "MAE",
-    yerr_values=std_values,
-    title="Cross-dataset HR error summary — MAE ± Std (BPM)",
+    yerr_values=se_values,
+    title="Cross-dataset HR error summary — MAE ± SE (BPM)",
 )
 plt.tight_layout()
 fig.subplots_adjust(bottom=0.18)
@@ -382,7 +395,7 @@ if SHOW_PLOT:
 else:
     plt.close(fig)
 
-summary_table_mae_std = pd.concat({"MAE": summary_table_mae, "Std": summary_table_std}, axis=1)
-summary_table_mae_std
+summary_table_mae_se = pd.concat({"MAE": summary_table_mae, "SE": summary_table_se}, axis=1)
+summary_table_mae_se
 
 # %%

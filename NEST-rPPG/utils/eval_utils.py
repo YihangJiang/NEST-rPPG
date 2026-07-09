@@ -88,27 +88,92 @@ def hr_from_fft(signal_1d: np.ndarray, fs: float = FS_BVP) -> float:
     return float(hr[0]) if hr.size else np.nan
 
 
-def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> tuple:
-    """Matches MyEval.m: me, E_std, mae, rmse."""
-    hr_pr = np.asarray(hr_pr).ravel()
-    hr_gt = np.asarray(hr_gt).ravel()
-    n = len(hr_pr)
-    if n != len(hr_gt) or n == 0:
-        return np.nan, np.nan, np.nan, np.nan
-    temp = hr_pr - hr_gt
-    valid = ~(np.isnan(hr_pr) | np.isnan(hr_gt))
-    n_valid = np.sum(valid)
-    if n_valid == 0:
-        return np.nan, np.nan, np.nan, np.nan
-    # ME: mean error
-    me = float(np.nanmean(temp)) if n_valid > 0 else np.nan
-    # E_std: std of error
-    e_std = float(np.nanstd(temp, ddof=0)) if n_valid > 1 else (0.0 if n_valid == 1 else np.nan)
-    # MAE: mean absolute error (use nanmean to handle NaNs properly)
-    mae = float(np.nanmean(np.abs(temp))) if n_valid > 0 else np.nan
-    # RMSE: root mean squared error
-    rmse = float(np.sqrt(np.nanmean(temp * temp))) if n_valid > 0 else np.nan
-    return me, e_std, mae, rmse
+def _empty_hr_metrics() -> Dict[str, float]:
+    nan = float(np.nan)
+    return {
+        "ME": nan,
+        "Std": nan,
+        "MAE": nan,
+        "MAE_Std": nan,
+        "MAE_SE": nan,
+        "RMSE": nan,
+        "RMSE_Std": nan,
+        "RMSE_SE": nan,
+    }
+
+
+def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> Dict[str, float]:
+    """
+    Subject-level HR error metrics (matches MyEval.m for ME, Std, MAE, RMSE).
+
+    Also reports dispersion / standard error for MAE and RMSE:
+    - MAE_Std / MAE_SE: std / SE of per-subject absolute errors |HR_pr - HR_gt|
+    - RMSE_Std / RMSE_SE: std / SE of jackknife leave-one-out RMSE (BPM)
+    """
+    hr_pr = np.asarray(hr_pr, dtype=float).ravel()
+    hr_gt = np.asarray(hr_gt, dtype=float).ravel()
+    if len(hr_pr) != len(hr_gt) or len(hr_pr) == 0:
+        return _empty_hr_metrics()
+
+    err = hr_pr - hr_gt
+    valid = np.isfinite(hr_pr) & np.isfinite(hr_gt)
+    n = int(np.sum(valid))
+    if n == 0:
+        return _empty_hr_metrics()
+
+    err = err[valid]
+    abs_err = np.abs(err)
+    sq_err = err * err
+
+    me = float(np.mean(err))
+    e_std = float(np.std(err, ddof=0)) if n > 1 else (0.0 if n == 1 else np.nan)
+    mae = float(np.mean(abs_err))
+    mae_std = float(np.std(abs_err, ddof=0)) if n > 1 else (0.0 if n == 1 else np.nan)
+    mae_se = float(mae_std / np.sqrt(n))
+    rmse = float(np.sqrt(np.mean(sq_err)))
+    if n > 1:
+        total_sq = float(np.sum(sq_err))
+        loo_rmse = np.sqrt((total_sq - sq_err) / (n - 1))
+        rmse_std = float(np.std(loo_rmse, ddof=0))
+        rmse_se = float(rmse_std / np.sqrt(n))
+    else:
+        rmse_std = 0.0
+        rmse_se = 0.0
+
+    return {
+        "ME": me,
+        "Std": e_std,
+        "MAE": mae,
+        "MAE_Std": mae_std,
+        "MAE_SE": mae_se,
+        "RMSE": rmse,
+        "RMSE_Std": rmse_std,
+        "RMSE_SE": rmse_se,
+    }
+
+
+def print_hr_metrics(
+    result: Dict[str, Dict[str, Any]],
+    *,
+    source_domain: Optional[str] = None,
+    target_domain: Optional[str] = None,
+) -> None:
+    """Print HR metric table including MAE/RMSE std and standard error."""
+    if source_domain is not None:
+        print(f"Source domain: {source_domain}")
+    if target_domain is not None:
+        print(f"Target domain: {target_domain}")
+    print(
+        "Feature    \tME\t\tStd\t\tMAE\t\tMAE_Std\t\tMAE_SE\t\t"
+        "RMSE\t\tRMSE_Std\t\tRMSE_SE"
+    )
+    print("-" * 120)
+    for name, metrics in result.items():
+        print(
+            f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t"
+            f"{metrics['MAE']:.6f}\t{metrics['MAE_Std']:.6f}\t{metrics['MAE_SE']:.6f}\t"
+            f"{metrics['RMSE']:.6f}\t{metrics['RMSE_Std']:.6f}\t{metrics['RMSE_SE']:.6f}"
+        )
 
 
 @lru_cache(maxsize=256)
@@ -230,7 +295,7 @@ def eval_mean_guessing_baseline(
     test_segments = gt_hr_segments_from_index(test_index_dir, target_domain, frames_num)
     test_hr_gt, n_test_segments, n_test_subjects = subject_mean_hr_from_segments(test_segments)
     hr_pr = np.full_like(test_hr_gt, train_mean_hr)
-    me, std, mae, rmse = my_eval(hr_pr, test_hr_gt)
+    metrics = my_eval(hr_pr, test_hr_gt)
     return {
         "train_domain": source_domain,
         "test_domain": target_domain,
@@ -238,10 +303,7 @@ def eval_mean_guessing_baseline(
         "n_train_segments": float(n_train_segments),
         "n_test_segments": float(n_test_segments),
         "n_test_subjects": float(n_test_subjects),
-        "ME": me,
-        "Std": std,
-        "MAE": mae,
-        "RMSE": rmse,
+        **metrics,
     }
 
 
@@ -333,8 +395,7 @@ def run_eval(
 
     hr_pr = np.array(hr_pr_per_subject)
     hr_gt = np.array(hr_gt_per_subject)
-    me, e_std, mae, rmse = my_eval(hr_pr, hr_gt)
-    result = {"HR": {"ME": me, "Std": e_std, "MAE": mae, "RMSE": rmse}}
+    result = {"HR": my_eval(hr_pr, hr_gt)}
     if return_details:
         details["hr_gt_subject_mean_bpm"] = hr_gt
         details["hr_pr_subject_mean_bpm"] = hr_pr
@@ -454,7 +515,8 @@ def append_regions_eval_summary_csv(
     Intended for `run_regions.sh` flows: after `train_regions.py` + `eval_from_bvp.py`,
     record source/target domains, InfoNCE weight, and HR metrics from `run_eval` output.
 
-    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, RMSE
+    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, MAE_Std, MAE_SE,
+    RMSE, RMSE_Std, RMSE_SE
     """
     if metric_key not in result:
         raise KeyError(f"result has no key {metric_key!r}; keys: {list(result.keys())}")
@@ -466,9 +528,16 @@ def append_regions_eval_summary_csv(
         "Regions": regions,
         "Std": m.get("Std", np.nan),
         "MAE": m.get("MAE", np.nan),
+        "MAE_Std": m.get("MAE_Std", np.nan),
+        "MAE_SE": m.get("MAE_SE", np.nan),
         "RMSE": m.get("RMSE", np.nan),
+        "RMSE_Std": m.get("RMSE_Std", np.nan),
+        "RMSE_SE": m.get("RMSE_SE", np.nan),
     }
-    fieldnames = ["Source Domain", "Target domain", "Weight", "Regions", "Std", "MAE", "RMSE"]
+    fieldnames = [
+        "Source Domain", "Target domain", "Weight", "Regions",
+        "Std", "MAE", "MAE_Std", "MAE_SE", "RMSE", "RMSE_Std", "RMSE_SE",
+    ]
     training_cols = fieldnames[:4]
     inference_cols = fieldnames[4:]
 
@@ -489,7 +558,8 @@ def append_regions_eval_summary_csv(
         new_row = pd.DataFrame([[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
-            m.get("RMSE", np.nan),
+            m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
+            m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),
         ]], columns=expected_cols)
         training_cols = df.columns[:4]
         match = pd.Series(True, index=df.index)
@@ -508,7 +578,8 @@ def append_regions_eval_summary_csv(
         new_row = [[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
-            m.get("RMSE", np.nan),
+            m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
+            m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),
         ]]
         df = pd.DataFrame(new_row, columns=multi_cols)
 
