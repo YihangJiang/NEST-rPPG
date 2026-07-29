@@ -14,6 +14,7 @@ fi
 
 # Ensure `conda activate` works in non-interactive shells.
 source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate mpipe
 
 # # ============================================
 # # Training: PURE_my -> Testing: UBFC_my_in
@@ -55,26 +56,26 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # weight_info=0 / 0.01 variants
 # ============================================
 
-# conda activate training; python train_whole.py --src 'UBFC_my' -t 'PURE_my_in' --weight_info 0
-# conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'UBFC_my' -t 'PURE_my_in' --weight_info 0
+python eval_from_bvp.py
 
 
-# conda activate training; python train_whole.py --src 'BUAA_my' -t 'UBFC_my_in' --weight_info 0
-# conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'BUAA_my' -t 'UBFC_my_in' --weight_info 0
+python eval_from_bvp.py
 
 
-# conda activate training; python train_whole.py --src 'UBFC_my' -t 'BUAA_my_in' --weight_info 0
-# conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'UBFC_my' -t 'BUAA_my_in' --weight_info 0
+python eval_from_bvp.py
 
 
-# conda activate training; python train_whole.py --src 'BUAA_my' -t 'PURE_my_in' --weight_info 0
-# conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'BUAA_my' -t 'PURE_my_in' --weight_info 0
+python eval_from_bvp.py
 
-conda activate training; python train_whole.py --src 'PURE_my' -t 'BUAA_my_in' --weight_info 0
-conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'PURE_my' -t 'BUAA_my_in' --weight_info 0
+python eval_from_bvp.py
 
-conda activate training; python train_whole.py --src 'PURE_my' -t 'UBFC_my_in' --weight_info 0
-conda activate training; python eval_from_bvp.py
+python train_whole.py --src 'UBFC_my' -t 'BUAA_my_in' --weight_info 0
+python eval_from_bvp.py
 
 
 

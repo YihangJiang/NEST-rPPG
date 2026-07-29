@@ -1,7 +1,8 @@
 # %%
 # Histogram of video frame counts for PURE, UBFC, and BUAA (infraorbital / *_my_in).
 #
-# Frame count per subject is read from STMap width (same convention as MyDataset.getIndex).
+# Each top-level folder is one video (a subject may have multiple videos).
+# Frame count per video is read from STMap width (same convention as MyDataset.getIndex).
 #
 # Run cell-by-cell in Jupyter / VS Code interactive window, or:
 #   python plot_dataset_size.py
@@ -57,13 +58,13 @@ def collect_frame_counts(domain: str, stmap_name: str | None = None) -> list[int
 
     frame_counts: list[int] = []
     skipped: list[str] = []
-    for subject in sorted(os.listdir(data_root)):
-        if subject.startswith(".") or subject.endswith(".DS_Store"):
+    for video_id in sorted(os.listdir(data_root)):
+        if video_id.startswith(".") or video_id.endswith(".DS_Store"):
             continue
-        subject_dir = os.path.join(data_root, subject)
-        if not os.path.isdir(subject_dir):
+        video_dir = os.path.join(data_root, video_id)
+        if not os.path.isdir(video_dir):
             continue
-        img_path = os.path.join(subject_dir, "STMap", stmap_name)
+        img_path = os.path.join(video_dir, "STMap", stmap_name)
         frame_count = read_frame_count(img_path)
         if frame_count is None:
             skipped.append(img_path)
@@ -71,7 +72,7 @@ def collect_frame_counts(domain: str, stmap_name: str | None = None) -> list[int
         frame_counts.append(frame_count)
 
     if skipped:
-        print(f"  {dataset_label(domain)}: skipped {len(skipped)} subject(s) with missing/invalid STMap")
+        print(f"  {dataset_label(domain)}: skipped {len(skipped)} video(s) with missing/invalid STMap")
     return frame_counts
 
 
@@ -85,7 +86,7 @@ def collect_all_frame_counts(domains: tuple[str, ...] = DATASETS) -> dict[str, n
             raise RuntimeError(f"No valid STMap images found for {domain}")
         counts_by_dataset[label] = np.asarray(counts, dtype=np.int32)
         print(
-            f"  {label}: {len(counts)} subjects, frames min/median/max = "
+            f"  {label}: {len(counts)} videos, frames min/median/max = "
             f"{counts_by_dataset[label].min()}/{np.median(counts_by_dataset[label]):.0f}/"
             f"{counts_by_dataset[label].max()}"
         )
@@ -97,30 +98,28 @@ def plot_frame_histogram(
     out_path: str,
     *,
     bins: int = 30,
-    title: str = "Frame count distribution per subject",
     show: bool = True,
 ) -> None:
-    fig, ax = plt.subplots(figsize=(10, 5))
+    labels = list(counts_by_dataset.keys())
+    fig, axes = plt.subplots(1, len(labels), figsize=(4 * len(labels), 5), sharey=True)
+    if len(labels) == 1:
+        axes = [axes]
 
-    all_counts = np.concatenate(list(counts_by_dataset.values()))
-    bin_edges = np.histogram_bin_edges(all_counts, bins=bins)
-
-    for label, counts in counts_by_dataset.items():
+    for ax, label in zip(axes, labels):
+        counts = counts_by_dataset[label]
+        bin_edges = np.histogram_bin_edges(counts, bins=bins)
         ax.hist(
             counts,
             bins=bin_edges,
-            alpha=0.55,
-            label=f"{label} (n={len(counts)})",
             color=DATASET_COLORS.get(label, None),
             edgecolor="white",
             linewidth=0.6,
         )
+        ax.set_xlabel("Number of frames")
+        ax.set_title(f"{label} (n={len(counts)} videos)")
+        ax.grid(axis="y", alpha=0.3)
 
-    ax.set_xlabel("Number of frames per subject")
-    ax.set_ylabel("Number of subjects")
-    ax.set_title(title)
-    ax.legend(loc="upper right", frameon=True)
-    ax.grid(axis="y", alpha=0.3)
+    axes[0].set_ylabel("Number of videos")
     plt.tight_layout()
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -146,7 +145,7 @@ counts_by_dataset = collect_all_frame_counts()
 
 summary_table = {
     label: {
-        "n_subjects": len(counts),
+        "n_videos": len(counts),
         "min": int(counts.min()),
         "median": float(np.median(counts)),
         "max": int(counts.max()),
@@ -162,7 +161,6 @@ plot_frame_histogram(
     counts_by_dataset,
     OUT_PATH,
     bins=BINS,
-    title="Frame count distribution per subject",
     show=SHOW_PLOT,
 )
 counts_by_dataset

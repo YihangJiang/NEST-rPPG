@@ -24,14 +24,14 @@ if _BASE_DIR not in sys.path:
     sys.path.insert(0, _BASE_DIR)
 
 # (infraorbital source, infraorbital target, whole-face source for bar 1)
-# Ordered by test dataset: BUAA, then UBFC, then PURE.
+# Ordered by test dataset: BUAA, then PURE, then UBFC.
 TRANSFER_PAIRS = [
     ("UBFC_my_in", "BUAA_my_in", "UBFC_my"),
     ("PURE_my_in", "BUAA_my_in", "PURE_my"),
-    ("PURE_my_in", "UBFC_my_in", "PURE_my"),
-    ("BUAA_my_in", "UBFC_my_in", "BUAA_my"),
     ("UBFC_my_in", "PURE_my_in", "UBFC_my"),
     ("BUAA_my_in", "PURE_my_in", "BUAA_my"),
+    ("PURE_my_in", "UBFC_my_in", "PURE_my"),
+    ("BUAA_my_in", "UBFC_my_in", "BUAA_my"),
 ]
 
 BAR_CONFIGS = [
@@ -97,27 +97,72 @@ def get_test_group_spans(transfer_pairs=TRANSFER_PAIRS):
     return spans
 
 
-def annotate_test_groups(ax, x_positions):
-    spans = get_test_group_spans()
-    for i, (test_name, start, end) in enumerate(spans):
+def annotate_train_test_axis(ax, x_positions, transfer_pairs=TRANSFER_PAIRS):
+    """Two-row x-axis: Train/Test labels on the left, dataset names per group."""
+    spans = get_test_group_spans(transfer_pairs)
+    train_row_y = -0.10
+    test_row_y = -0.20
+    left_x = -0.55
+
+    for i, (_, start, _) in enumerate(spans):
         if i > 0:
             boundary = (x_positions[start] + x_positions[start - 1]) / 2.0
             ax.axvline(boundary, color="gray", linestyle="--", alpha=0.35, zorder=0)
+
+    axis_transform = ax.get_xaxis_transform()
+    ax.text(
+        left_x,
+        train_row_y,
+        "Train:",
+        transform=axis_transform,
+        ha="right",
+        va="center",
+        fontsize=10,
+        fontweight="bold",
+    )
+    ax.text(
+        left_x,
+        test_row_y,
+        "Test:",
+        transform=axis_transform,
+        ha="right",
+        va="center",
+        fontsize=10,
+        fontweight="bold",
+    )
+
+    for xi, (src_in, _, _) in enumerate(transfer_pairs):
+        ax.text(
+            x_positions[xi],
+            train_row_y,
+            dataset_name(src_in),
+            transform=axis_transform,
+            ha="center",
+            va="center",
+            fontsize=9,
+        )
+
+    for test_name, start, end in spans:
         center = float(np.mean(x_positions[start : end + 1]))
         ax.text(
             center,
-            -0.14,
-            f"Test: {test_name}",
-            transform=ax.get_xaxis_transform(),
+            test_row_y,
+            test_name,
+            transform=axis_transform,
             ha="center",
-            va="top",
-            fontsize=10,
+            va="center",
+            fontsize=9,
             fontweight="bold",
         )
 
 
 def load_summary_csv(csv_path: str) -> pd.DataFrame:
-    df = pd.read_csv(csv_path, skiprows=1)
+    with open(csv_path, "r") as f:
+        first_line = f.readline()
+    if first_line.startswith("Training"):
+        df = pd.read_csv(csv_path, skiprows=1)
+    else:
+        df = pd.read_csv(csv_path)
     df.columns = [c.strip() for c in df.columns]
     df["Weight"] = pd.to_numeric(df["Weight"], errors="coerce")
     for col in ("Std", "MAE", "RMSE", "MAE_SE", "RMSE_SE"):
@@ -218,7 +263,6 @@ def draw_grouped_bars(
     metric: str,
     *,
     yerr_values=None,
-    title: str | None = None,
 ):
     n_groups = len(group_labels)
     n_bars = len(BAR_CONFIGS)
@@ -259,18 +303,10 @@ def draw_grouped_bars(
             )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(group_labels, rotation=0)
+    ax.set_xticklabels([])
     ax.set_ylabel(METRIC_LABELS.get(metric, metric))
-    ax.set_xlabel("Training → Testing")
-    annotate_test_groups(ax, x)
+    annotate_train_test_axis(ax, x)
 
-    unit = METRIC_UNITS.get(metric, "")
-    default_title = (
-        f"Cross-dataset HR error summary — {metric} ({unit})"
-        if unit
-        else f"Cross-dataset HR error summary — {metric}"
-    )
-    ax.set_title(title or default_title)
     ax.legend(loc="upper left", frameon=True)
     ax.grid(True, axis="y", alpha=0.3)
 
@@ -294,7 +330,6 @@ def save_grouped_bar_figure(
     out_path: str,
     *,
     use_se: bool = False,
-    title: str | None = None,
     show: bool = False,
 ) -> pd.DataFrame:
     yerr_values = None
@@ -314,10 +349,10 @@ def save_grouped_bar_figure(
 
     fig, ax = plt.subplots(figsize=(14, 6))
     draw_grouped_bars(
-        ax, group_labels, values, metric, yerr_values=yerr_values, title=title
+        ax, group_labels, values, metric, yerr_values=yerr_values
     )
     plt.tight_layout()
-    fig.subplots_adjust(bottom=0.18)
+    fig.subplots_adjust(bottom=0.24, left=0.08)
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     print(f"Saved figure: {out_path}")
@@ -353,7 +388,6 @@ summary_table_rmse = save_grouped_bar_figure(
     "RMSE",
     OUT_PATH_RMSE,
     use_se=True,
-    title="Cross-dataset HR error summary — RMSE ± SE (BPM)",
     show=SHOW_PLOT,
 )
 summary_table_rmse
@@ -381,11 +415,10 @@ draw_grouped_bars(
     group_labels,
     mae_values,
     "MAE",
-    yerr_values=se_values,
-    title="Cross-dataset HR error summary — MAE ± SE (BPM)",
+    yerr_values=se_values
 )
 plt.tight_layout()
-fig.subplots_adjust(bottom=0.18)
+fig.subplots_adjust(bottom=0.24, left=0.08)
 os.makedirs(os.path.dirname(os.path.abspath(OUT_PATH_MAE_STD)), exist_ok=True)
 fig.savefig(OUT_PATH_MAE_STD, dpi=150, bbox_inches="tight")
 print(f"Saved figure: {OUT_PATH_MAE_STD}")

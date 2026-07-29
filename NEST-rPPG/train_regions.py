@@ -673,6 +673,7 @@ if _USE_JUPYTER_CONFIG:
     from utils.eval_utils import (
         run_eval,
         write_segment_errors_csv,
+        write_chunk_mismatch_csv,
         append_regions_eval_summary_csv,
         print_hr_metrics,
     )
@@ -689,6 +690,13 @@ if _USE_JUPYTER_CONFIG:
     write_segment_errors_csv(details, csv_path)
     print(f"Saved segment errors CSV: {csv_path}")
 
+    mismatch_csv = os.path.join(feature_dir, "chunk_mismatches.csv")
+    mismatch_path = write_chunk_mismatch_csv(details, mismatch_csv)
+    if mismatch_path:
+        print(f"Saved chunk mismatch CSV: {mismatch_path}")
+    else:
+        print("No gt/pr chunk-count mismatches across subjects.")
+
     json_path = os.path.join(feature_dir, "eval_result.json")
     payload = {
         "save_path": eval_save_path,
@@ -696,6 +704,8 @@ if _USE_JUPYTER_CONFIG:
         "target_domain": tgt_domain,
         "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
         "regions": str(getattr(args, "regions", "all")),
+        "eval_protocol": "chunk_error_first_then_per_video_mae",
+        "chunk_mismatches": details.get("chunk_mismatches", []),
         "result": result,
     }
     with open(json_path, "w") as f:

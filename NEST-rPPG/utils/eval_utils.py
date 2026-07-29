@@ -152,6 +152,89 @@ def my_eval(hr_pr: np.ndarray, hr_gt: np.ndarray) -> Dict[str, float]:
     }
 
 
+def _video_metrics_from_chunk_errors(
+    hr_pr_list: List[float],
+    hr_gt_list: List[float],
+) -> Dict[str, float]:
+    """Per-video metrics from paired chunk HR values (chunk error first)."""
+    hr_pr = np.asarray(hr_pr_list, dtype=float)
+    hr_gt = np.asarray(hr_gt_list, dtype=float)
+    if hr_pr.shape != hr_gt.shape or hr_pr.size == 0:
+        nan = float(np.nan)
+        return {"video_me": nan, "video_mae": nan, "video_rmse": nan, "n_chunks_used": 0}
+
+    err = hr_pr - hr_gt
+    valid = np.isfinite(err)
+    n = int(np.sum(valid))
+    if n == 0:
+        nan = float(np.nan)
+        return {"video_me": nan, "video_mae": nan, "video_rmse": nan, "n_chunks_used": 0}
+
+    err = err[valid]
+    abs_err = np.abs(err)
+    sq_err = err * err
+    return {
+        "video_me": float(np.mean(err)),
+        "video_mae": float(np.mean(abs_err)),
+        "video_rmse": float(np.sqrt(np.mean(sq_err))),
+        "n_chunks_used": n,
+    }
+
+
+def aggregate_per_video_metrics(
+    video_mes: np.ndarray,
+    video_maes: np.ndarray,
+    video_rmses: np.ndarray,
+) -> Dict[str, float]:
+    """
+    Dataset-level HR metrics from per-video chunk-first statistics.
+
+    Each video contributes one value (equal weight), regardless of chunk count.
+    """
+    video_mes = np.asarray(video_mes, dtype=float).ravel()
+    video_maes = np.asarray(video_maes, dtype=float).ravel()
+    video_rmses = np.asarray(video_rmses, dtype=float).ravel()
+    if (
+        len(video_mes) != len(video_maes)
+        or len(video_mes) != len(video_rmses)
+        or len(video_mes) == 0
+    ):
+        return _empty_hr_metrics()
+
+    valid = np.isfinite(video_mes) & np.isfinite(video_maes) & np.isfinite(video_rmses)
+    n = int(np.sum(valid))
+    if n == 0:
+        return _empty_hr_metrics()
+
+    video_mes = video_mes[valid]
+    video_maes = video_maes[valid]
+    video_rmses = video_rmses[valid]
+
+    me = float(np.mean(video_mes))
+    e_std = float(np.std(video_mes, ddof=0)) if n > 1 else (0.0 if n == 1 else np.nan)
+    mae = float(np.mean(video_maes))
+    mae_std = float(np.std(video_maes, ddof=0)) if n > 1 else (0.0 if n == 1 else np.nan)
+    mae_se = float(mae_std / np.sqrt(n))
+    rmse = float(np.mean(video_rmses))
+    if n > 1:
+        rmse_std = float(np.std(video_rmses, ddof=0))
+        rmse_se = float(rmse_std / np.sqrt(n))
+    else:
+        rmse_std = 0.0
+        rmse_se = 0.0
+
+    return {
+        "ME": me,
+        "Std": e_std,
+        "MAE": mae,
+        "MAE_Std": mae_std,
+        "MAE_SE": mae_se,
+        "RMSE": rmse,
+        "RMSE_Std": rmse_std,
+        "RMSE_SE": rmse_se,
+    }
+
+
 def print_hr_metrics(
     result: Dict[str, Dict[str, Any]],
     *,
@@ -314,9 +397,15 @@ def run_eval(
     verbose: bool = True,
 ) -> Dict[str, Dict[str, Any]] | Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """
-    Load gt/pr .mat pairs, compute FFT heart rate per segment (no interpolation, fs=FS_BVP).
-    Average HR per subject, then compute ME, Std, MAE, RMSE.
-    save_path: directory with '*gt_Wave.mat' and '*pr_Wave.mat' pairs (e.g. Wave_sort/PURE).
+    Load gt/pr .mat pairs, compute FFT heart rate per chunk (fs=FS_BVP, no interpolation).
+
+    Protocol:
+    1. Per chunk: err = HR_pr - HR_gt
+    2. Per video: MAE/ME/RMSE from chunk errors (mean |err|, mean err, sqrt(mean err^2))
+    3. Dataset: mean of per-video metrics (each video weighted equally)
+
+    When gt/pr chunk counts differ for a video, only the first min(n_gt, n_pr) chunks
+    are paired by index; a warning is printed and the mismatch is recorded in details.
     """
     save_path = os.path.abspath(save_path)
     if not os.path.isdir(save_path):
@@ -334,14 +423,19 @@ def run_eval(
     if not common_ids:
         raise FileNotFoundError(f"No gt/pr .mat pairs found in {save_path}")
 
-    hr_pr_per_subject: List[float] = []
-    hr_gt_per_subject: List[float] = []
+    video_mes: List[float] = []
+    video_maes: List[float] = []
+    video_rmses: List[float] = []
     details: Dict[str, Any] = {
         "save_path": save_path,
         "subjects": [],  # list of per-subject dicts (with per-segment arrays)
         "rows": [],      # flat rows for CSV writing (subject_id, segment_idx, hr_gt, hr_pr, err)
+        "chunk_mismatches": [],  # videos where n_gt != n_pr
     }
-    print(f"Found {len(common_ids)} subject pairs. Computing FFT HR only (fs={FS_BVP} Hz, no interpolation)...")
+    print(
+        f"Found {len(common_ids)} subject pairs. "
+        f"Chunk-error-first eval (fs={FS_BVP} Hz, no interpolation)..."
+    )
     if verbose:
         print(f"Subjects: {common_ids}")
     for sid in tqdm(common_ids, desc="Subjects", unit="subject", disable=not verbose):
@@ -353,15 +447,31 @@ def run_eval(
             Wave_gt = Wave_gt[None, :]
         if Wave_pr.ndim == 1:
             Wave_pr = Wave_pr[None, :]
-        num = Wave_gt.shape[0]
-        if num == 0:
-            print(f"Warning: Subject {sid} has no segments, skipping...")
+        n_gt = int(Wave_gt.shape[0])
+        n_pr = int(Wave_pr.shape[0])
+        chunk_mismatch = n_gt != n_pr
+        if n_gt == 0 or n_pr == 0:
+            print(f"Warning: Subject {sid} has no segments (gt={n_gt}, pr={n_pr}), skipping...")
             continue
+        if chunk_mismatch:
+            msg = (
+                f"Chunk count mismatch for subject {sid}: "
+                f"gt={n_gt}, pr={n_pr}; using first {min(n_gt, n_pr)} paired chunks"
+            )
+            print(f"Warning: {msg}")
+            details["chunk_mismatches"].append({
+                "subject_id": sid,
+                "n_chunks_gt": n_gt,
+                "n_chunks_pr": n_pr,
+                "n_chunks_used": min(n_gt, n_pr),
+            })
+
+        n_use = min(n_gt, n_pr)
         hr_pr_list: List[float] = []
         hr_gt_list: List[float] = []
-        hr_pr_arr = hr_from_fft_batch(np.asarray(Wave_pr, dtype=float), fs=FS_BVP)
-        hr_gt_arr = hr_from_fft_batch(np.asarray(Wave_gt, dtype=float), fs=FS_BVP)
-        for n in range(num):
+        hr_pr_arr = hr_from_fft_batch(np.asarray(Wave_pr[:n_use], dtype=float), fs=FS_BVP)
+        hr_gt_arr = hr_from_fft_batch(np.asarray(Wave_gt[:n_use], dtype=float), fs=FS_BVP)
+        for n in range(n_use):
             hr_pr_n = float(hr_pr_arr[n])
             hr_gt_n = float(hr_gt_arr[n])
             hr_pr_list.append(hr_pr_n)
@@ -372,34 +482,58 @@ def run_eval(
                 "hr_gt_bpm": float(hr_gt_n) if np.isfinite(hr_gt_n) else np.nan,
                 "hr_pr_bpm": float(hr_pr_n) if np.isfinite(hr_pr_n) else np.nan,
                 "err_bpm": float(hr_pr_n - hr_gt_n) if (np.isfinite(hr_pr_n) and np.isfinite(hr_gt_n)) else np.nan,
+                "chunk_mismatch": chunk_mismatch,
+                "n_chunks_gt": n_gt,
+                "n_chunks_pr": n_pr,
             })
+
+        chunk_err = np.array(hr_pr_list, dtype=float) - np.array(hr_gt_list, dtype=float)
+        video_stats = _video_metrics_from_chunk_errors(hr_pr_list, hr_gt_list)
+        video_mes.append(video_stats["video_me"])
+        video_maes.append(video_stats["video_mae"])
+        video_rmses.append(video_stats["video_rmse"])
+
         with np.errstate(invalid="ignore"):
             subj_hr_pr = float(np.nanmean(hr_pr_list))
             subj_hr_gt = float(np.nanmean(hr_gt_list))
-            hr_pr_per_subject.append(subj_hr_pr)
-            hr_gt_per_subject.append(subj_hr_gt)
 
         details["subjects"].append({
             "subject_id": sid,
+            "n_chunks_gt": n_gt,
+            "n_chunks_pr": n_pr,
+            "n_chunks_used": n_use,
+            "chunk_count_mismatch": chunk_mismatch,
             "hr_gt_segments_bpm": np.array(hr_gt_list, dtype=float),
             "hr_pr_segments_bpm": np.array(hr_pr_list, dtype=float),
-            "err_segments_bpm": np.array(hr_pr_list, dtype=float) - np.array(hr_gt_list, dtype=float),
-            "mean_err_bpm": float(np.nanmean(np.array(hr_pr_list) - np.array(hr_gt_list))),
-            "median_err_bpm": float(np.nanmedian(np.array(hr_pr_list) - np.array(hr_gt_list))),
+            "err_segments_bpm": chunk_err,
+            "video_me_bpm": video_stats["video_me"],
+            "video_mae_bpm": video_stats["video_mae"],
+            "video_rmse_bpm": video_stats["video_rmse"],
+            "mean_err_bpm": video_stats["video_me"],
+            "median_err_bpm": float(np.nanmedian(chunk_err)),
             "mean_hr_gt_bpm": subj_hr_gt,
             "mean_hr_pr_bpm": subj_hr_pr,
         })
 
-    if len(hr_pr_per_subject) == 0:
+    if len(video_maes) == 0:
         raise ValueError("No valid data found - all subjects have empty arrays")
 
-    hr_pr = np.array(hr_pr_per_subject)
-    hr_gt = np.array(hr_gt_per_subject)
-    result = {"HR": my_eval(hr_pr, hr_gt)}
+    if details["chunk_mismatches"] and verbose:
+        print(
+            f"Chunk mismatches: {len(details['chunk_mismatches'])} / {len(common_ids)} subjects"
+        )
+
+    result = {
+        "HR": aggregate_per_video_metrics(
+            np.array(video_mes, dtype=float),
+            np.array(video_maes, dtype=float),
+            np.array(video_rmses, dtype=float),
+        )
+    }
     if return_details:
-        details["hr_gt_subject_mean_bpm"] = hr_gt
-        details["hr_pr_subject_mean_bpm"] = hr_pr
-        details["err_subject_mean_bpm"] = hr_pr - hr_gt
+        details["video_me_bpm"] = np.array(video_mes, dtype=float)
+        details["video_mae_bpm"] = np.array(video_maes, dtype=float)
+        details["video_rmse_bpm"] = np.array(video_rmses, dtype=float)
         return result, details
     return result
 
@@ -484,17 +618,39 @@ def write_segment_errors_csv(details: Dict[str, Any], csv_path: str) -> str:
     - hr_gt_bpm
     - hr_pr_bpm
     - err_bpm
+    - chunk_mismatch
+    - n_chunks_gt
+    - n_chunks_pr
     """
     rows = list(details.get("rows", []))
     if not rows:
         raise ValueError("details has no rows. Call run_eval(..., return_details=True) first.")
 
     os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
-    fieldnames = ["subject_id", "segment_idx", "hr_gt_bpm", "hr_pr_bpm", "err_bpm"]
+    fieldnames = [
+        "subject_id", "segment_idx", "hr_gt_bpm", "hr_pr_bpm", "err_bpm",
+        "chunk_mismatch", "n_chunks_gt", "n_chunks_pr",
+    ]
     with open(csv_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for r in rows:
+            w.writerow({k: r.get(k, "") for k in fieldnames})
+    return os.path.abspath(csv_path)
+
+
+def write_chunk_mismatch_csv(details: Dict[str, Any], csv_path: str) -> Optional[str]:
+    """Write per-video gt/pr chunk-count mismatches (empty file skipped if none)."""
+    mismatches = list(details.get("chunk_mismatches", []))
+    if not mismatches:
+        return None
+
+    os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
+    fieldnames = ["subject_id", "n_chunks_gt", "n_chunks_pr", "n_chunks_used"]
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in mismatches:
             w.writerow({k: r.get(k, "") for k in fieldnames})
     return os.path.abspath(csv_path)
 
@@ -545,23 +701,17 @@ def append_regions_eval_summary_csv(
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
     if os.path.exists(csv_path):
-        # Append to existing hierarchical CSV.
-        df = pd.read_csv(csv_path, header=[0, 1])
-        drop_cols = [c for c in df.columns if len(c) > 1 and c[1] == "r"]
-        if drop_cols:
-            df = df.drop(columns=drop_cols)
-        expected_cols = pd.MultiIndex.from_tuples(
-            [("Training", col) for col in training_cols] +
-            [("Inference", col) for col in inference_cols]
-        )
-        df = df.reindex(columns=expected_cols)
+        # Append to existing CSV.
+        df = pd.read_csv(csv_path)
+        if "r" in df.columns:
+            df = df.drop(columns=["r"])
+        df = df.reindex(columns=fieldnames)
         new_row = pd.DataFrame([[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
             m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
             m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),
-        ]], columns=expected_cols)
-        training_cols = df.columns[:4]
+        ]], columns=fieldnames)
         match = pd.Series(True, index=df.index)
         for c in training_cols:
             match = match & (df[c].astype(str) == str(new_row.iloc[0][c]))
@@ -570,18 +720,14 @@ def append_regions_eval_summary_csv(
         else:
             df = pd.concat([df, new_row], ignore_index=True)
     else:
-        # Create new DataFrame with grouped MultiIndex headers.
-        multi_cols = pd.MultiIndex.from_tuples(
-            [("Training", col) for col in training_cols] +
-            [("Inference", col) for col in inference_cols]
-        )
+        # Create new DataFrame with single-level headers.
         new_row = [[
             source_domain, target_domain, weight, regions,
             m.get("Std", np.nan), m.get("MAE", np.nan),
             m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
             m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),
         ]]
-        df = pd.DataFrame(new_row, columns=multi_cols)
+        df = pd.DataFrame(new_row, columns=fieldnames)
 
     df.to_csv(csv_path, index=False)
     return csv_path

@@ -38,14 +38,14 @@ conda activate mpipe
 # python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --tau-info 0.05 --weight_info 0
 # python eval_from_bvp.py
 
-python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-python eval_from_bvp.py
+# python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
 # python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0
 # python eval_from_bvp.py
 
-# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0
-# python eval_from_bvp.py
+python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0.01
+python eval_from_bvp.py
+python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0
+python eval_from_bvp.py
 
 

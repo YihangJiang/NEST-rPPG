@@ -21,6 +21,7 @@ from utils.eval_utils import (
     estimate_hr_from_psd,
     plot_subject_error_bars,
     write_segment_errors_csv,
+    write_chunk_mismatch_csv,
     append_regions_eval_summary_csv,
     plot_worst_subject_from_segment_csv,
     plot_worst_subject_signals,
@@ -74,6 +75,13 @@ csv_path = os.path.join(feature_dir, "segment_errors.csv")
 write_segment_errors_csv(details, csv_path)
 print(f"Saved segment errors CSV: {csv_path}")
 
+mismatch_csv = os.path.join(feature_dir, "chunk_mismatches.csv")
+mismatch_path = write_chunk_mismatch_csv(details, mismatch_csv)
+if mismatch_path:
+    print(f"Saved chunk mismatch CSV: {mismatch_path}")
+else:
+    print("No gt/pr chunk-count mismatches across subjects.")
+
 # 2) Bar plot: per-subject mean/median error
 bar_path = os.path.join(feature_dir, "subject_error_bars.png")
 if GENERATE_PLOTS:
@@ -121,6 +129,8 @@ payload = {
     "source_domain": config.SRC_DOMAIN,
     "target_domain": config.TGT_DOMAIN,
     "loss_type": config.LOSS_TYPE,
+    "eval_protocol": "chunk_error_first_then_per_video_mae",
+    "chunk_mismatches": details.get("chunk_mismatches", []),
     "result": result,
 }
 
