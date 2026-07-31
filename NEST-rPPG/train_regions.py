@@ -29,6 +29,7 @@ import MyLoss
 import model
 from utils.core import Logger, time_to_str, get_args
 import utils.train_utils as train_utils
+import utils.mlflow_utils as mlflow_utils
 
 import config
 
@@ -93,6 +94,16 @@ else:
     if not hasattr(args, 'weight_info'):
         # Used later as: loss = loss + args.weight_info * align_pos_loss
         args.weight_info = 0.01
+    if not hasattr(args, 'hr_aug_max'):
+        args.hr_aug_max = 1.0
+    if not hasattr(args, 'hr_aug_min'):
+        args.hr_aug_min = 1.0
+    if not hasattr(args, 'hr_aug_prob'):
+        args.hr_aug_prob = 1.0
+    if not hasattr(args, 'hr_aug_exclude'):
+        args.hr_aug_exclude = ''
+    if not hasattr(args, 'run_tag'):
+        args.run_tag = 'aug'
 
 # ============ End Cell 1 ============
 
@@ -326,6 +337,29 @@ log.open(log_path, mode='a')
 log.write("\n----------------------------------------------- [START %s] %s\n\n" %
           (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 
+# Setup MLflow experiment tracking
+use_mlflow = mlflow_utils.setup(
+    args=args,
+    experiment_name="rPPGNet_regions",
+    run_name=rPPGNet_name,
+)
+if use_mlflow:
+    mlflow_utils.log_params({
+        "src": source_domain,
+        "tgt": tgt_domain,
+        "regions": getattr(args, 'regions', 'all'),
+        "weight_info": getattr(args, 'weight_info', 0.01),
+        "tau_info": getattr(args, 'tau_info', 0.05),
+        "hr_aug_max": getattr(args, 'hr_aug_max', 1.0),
+        "hr_aug_min": getattr(args, 'hr_aug_min', 1.0),
+        "hr_aug_prob": getattr(args, 'hr_aug_prob', 1.0),
+        "run_tag": getattr(args, 'run_tag', 'aug'),
+        "max_iter": args.max_iter,
+        "batchsize": batch_size,
+        "lr": getattr(args, 'lr', 0.001),
+        "seed": getattr(args, 'seed', 0),
+    })
+
 # Print a train.py-style training summary for this baseline region run
 Source_domain_Names = [source_domain]
 total_src_samples = len(source_db)
@@ -527,6 +561,15 @@ for iter_num in range(max_iter + 1):
         )
         log.write(log_line)
         log.write('\n')
+        if use_mlflow:
+            mlflow_utils.log_metrics({
+                "loss": float(loss.data.cpu().numpy()),
+                "src_loss": float(src_loss.data.cpu().numpy()),
+                "loss_CM": float(loss_CM.data.cpu().numpy()),
+                "loss_DM": float(loss_DM.data.cpu().numpy()),
+                "loss_TA": float(loss_TA.data.cpu().numpy()),
+                "align_pos_loss": float(align_pos_loss.data.cpu().numpy()),
+            }, step=iter_num)
 
 print("Training finished.")
 
@@ -609,5 +652,9 @@ try:
     print("Saved run metadata to:", meta_path)
 except Exception as e:
     print("Warning: failed to write run_meta.json:", repr(e))
+
+if use_mlflow:
+    mlflow_utils.log_artifact(log_path)
+    mlflow_utils.end_run()
 
 # %%

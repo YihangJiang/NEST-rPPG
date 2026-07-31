@@ -44,15 +44,17 @@ class Data_DG(Dataset):
     def __len__(self):
         return self.num
 
-    def getLabel(self, nowPath, Step_Index):
+    def getLabel(self, nowPath, Step_Index, length=None):
+        if length is None:
+            length = self.frames_num
 
         if self.dataName == 'COH':
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
+            bvp = bvp[Step_Index:Step_Index + length]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
             gt = np.array(0.0)
             gt = gt.astype('float32')
@@ -61,8 +63,8 @@ class Data_DG(Dataset):
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
+            bvp = bvp[Step_Index:Step_Index + length]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
 
             gt_name = 'Label/HR_256.mat'
@@ -77,22 +79,22 @@ class Data_DG(Dataset):
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
+            bvp = bvp[Step_Index:Step_Index + length]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
 
             gt_name = 'Label_CSI/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
-            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = np.nanmean(gt[Step_Index:Step_Index + length])
             gt = gt.astype('float32')
         elif self.dataName == 'V4V':
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
-            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = np.nanmean(gt[Step_Index:Step_Index + length])
             gt = gt.astype('float32')
             bvp = np.array(0.0)
             bvp = bvp.astype('float32')
@@ -101,30 +103,30 @@ class Data_DG(Dataset):
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
+            bvp = bvp[Step_Index:Step_Index + length]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
 
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
-            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = np.nanmean(gt[Step_Index:Step_Index + length])
             gt = gt.astype('float32')
         elif self.dataName == 'UBFC':
             bvp_name = 'Label/BVP.mat'
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
-            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp))
+            bvp = bvp[Step_Index:Step_Index + length]
+            bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
 
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
-            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = np.nanmean(gt[Step_Index:Step_Index + length])
             gt = gt.astype('float32')
 
         elif (self.dataName.startswith('PURE_my') or self.dataName.startswith('UBFC_my') or self.dataName.startswith('BUAA_my')):
@@ -133,14 +135,14 @@ class Data_DG(Dataset):
             bvp_path = os.path.join(nowPath, bvp_name)
             bvp = scio.loadmat(bvp_path)['BVP']
             bvp = np.array(bvp.astype('float32')).reshape(-1)
-            bvp = bvp[Step_Index:Step_Index + self.frames_num]
+            bvp = bvp[Step_Index:Step_Index + length]
             bvp = (bvp - np.min(bvp)) / (np.max(bvp) - np.min(bvp) + 1e-8)
             bvp = bvp.astype('float32')
             gt_name = 'Label/HR.mat'
             gt_path = os.path.join(nowPath, gt_name)
             gt = scio.loadmat(gt_path)['HR']
             gt = np.array(gt.astype('float32')).reshape(-1)
-            gt = np.nanmean(gt[Step_Index:Step_Index + self.frames_num])
+            gt = np.nanmean(gt[Step_Index:Step_Index + length])
             gt = gt.astype('float32')
 
         else:

@@ -6,6 +6,8 @@ __pycache__/
 .idea/
 
 # Training outputs and logs
+NEST-rPPG/Training_Log/
+NEST-rPPG/mlruns/
 NEST-rPPG/Result/
 NEST-rPPG/Result_log/
 NEST-rPPG/Result_Model/

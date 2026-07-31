@@ -126,6 +126,21 @@ def get_args():
                         help='Weight for InfoNCE alignment loss')
     parser.add_argument('--src', dest='src', type=str, default=None,
                         help='Single source domain (e.g. UBFC); if set, train only on this domain')
+    parser.add_argument('--hr_aug_max', type=float, default=1.0,
+                        help='Max temporal compression factor (1.0 = off, 2.0 = up to 2x HR)')
+    parser.add_argument('--hr_aug_min', type=float, default=1.0,
+                        help='Min temporal stretch factor (1.0 = off, 0.5 = down to 0.5x HR)')
+    parser.add_argument('--hr_aug_prob', type=float, default=1.0,
+                        help='Probability of applying HR augmentation per training sample')
+    parser.add_argument('--hr_aug_exclude', type=str, default='',
+                        help='Participant IDs to exclude from HR augmentation')
+    parser.add_argument('--run_tag', type=str, default='aug',
+                        help='Tag appended to run output names')
+    parser.add_argument('--regions', dest='regions', type=str, default='all',
+                        choices=['all', 'neg', 'pos'],
+                        help='InfoNCE region mode (all, neg, pos)')
+    parser.add_argument('--tau_info', dest='tau_info', type=float, default=0.05,
+                        help='Temperature for InfoNCE alignment loss')
     return parser.parse_args()
 
 def MyEval(HR_pr, HR_rel):
