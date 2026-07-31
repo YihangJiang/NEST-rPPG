@@ -53,10 +53,9 @@ SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
 LOSS_TYPE = 'One'         # One / TA / CM / DM / All
 WEIGHT_INFO = 0.0        # InfoNCE alignment weight (0 = disabled)
-# Grid for weight_info sweeps (each value -> separate MLflow run: ..._w<weight>)
-WEIGHT_INFO_SWEEP = (0.0, 0.005, 0.01, 0.05)
+WEIGHT_INFO_SWEEP = (0.01,)  # weight_info fixed to 0.01 so Optuna sweeps tau_info only
 # Optuna search space (optuna_tune_regions.py)
-OPTUNA_TAU_INFO_SWEEP = (0.01, 0.02, 0.03, 0.04, 0.05)  # categorical; edit to your candidate values
+OPTUNA_TAU_INFO_SWEEP = (0.01, 0.05, 0.1, 0.5)  # tau_info candidates (0.01, 0.05, 0.1, 0.5)
 SEED = 0
 
 # Mapping from target domain to list of all possible source domains

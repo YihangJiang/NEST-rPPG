@@ -18,11 +18,10 @@ conda activate mpipe
 # Stop Jupyter kernels / other GPU jobs before running (OOM if GPU is ~full).
 # Example: malar region pair (edit src/tgt/regions/n-trials as needed)
 python optuna_tune_regions.py \
-  --src 'BUAA_my_in' \
-  -t 'PURE_my_in' \
+  --src 'PURE_my_in' \
+  -t 'BUAA_my_in' \
   --regions all \
-  --n-trials 20 \
-  --seed 0 \
+  --n-trials 4 \
   --fresh
 
 # Other malar pairs:
