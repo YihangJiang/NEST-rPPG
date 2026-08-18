@@ -1,0 +1,6 @@
+Starting Inter-Dataset HR Augmentation Pipeline...
+  weight_info: 0.01
+  tau_info:    0.05
+  max_iter:    1000
+
+--- STEP 0: Baseline Without HR Augmentation (hr_aug_max 1.0) ---

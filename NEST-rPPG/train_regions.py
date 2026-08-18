@@ -4,11 +4,12 @@
 # Region-aware (ROI) training: train on multiple region domains (e.g. cheek, target, eye),
 # test on a different dataset/region. Source regions and test domain come from config.
 # Run as script: python train_regions.py
-# Run in Jupyter: execute cells in order (Cell 1 = config, Cell 2 = rest or run all)
+# Run in Jupyter: execute cells in order; Cell 6 runs eval when _USE_JUPYTER_CONFIG=True
 # %reload_ext autoreload
 # %autoreload 2
 
 import os
+import json
 import random
 from types import SimpleNamespace
 
@@ -37,11 +38,11 @@ import config
 # ============ Cell 1: Config (constants) ============
 # True = use constants below (Jupyter). False = use command-line args (python train_my.py ...).
 _USE_JUPYTER_CONFIG = False
+NUM_WORKERS = 2
 
 if _USE_JUPYTER_CONFIG:
     args = SimpleNamespace(
         GPU='0',
-        num_workers=2,
         epochs=50,
         batchsize=100,
         lr=0.001,
@@ -60,12 +61,15 @@ if _USE_JUPYTER_CONFIG:
         # Save per-subject feature representations (av) during training
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0.01,
-        tau_info=0.07,
-        # When False: disable InfoNCE (no pos/neg forwards, align_pos_loss=0).
-        # When True: use pos/neg domains for contrastive alignment.
-        use_infonce=False,
+        weight_info=0.05,
+        tau_info=0.05,
+        regions='all',
         grad_clip=5.0,
+        hr_aug_max=1.0,
+        hr_aug_min=1.0,
+        hr_aug_prob=1.0,
+        hr_aug_exclude='',
+        run_tag='aug',
     )
 else:
     args = get_args()
@@ -81,11 +85,11 @@ else:
         args.index_root = config.STMAP_INDEX_BASE
     if not hasattr(args, 'max_iter'):
         args.max_iter = 1000
-    if not hasattr(args, 'loss_type'):
+    if not hasattr(args, 'loss_type') or args.loss_type is None:
         args.loss_type = config.LOSS_TYPE
     if not hasattr(args, 'save_features'):
         args.save_features = False
-    if not hasattr(args, 'tau_info'):
+    if not hasattr(args, 'tau_info') or args.tau_info is None:
         args.tau_info = 0.07
     if not hasattr(args, 'seed'):
         args.seed = 0
@@ -94,6 +98,8 @@ else:
     if not hasattr(args, 'weight_info'):
         # Used later as: loss = loss + args.weight_info * align_pos_loss
         args.weight_info = 0.01
+    if not hasattr(args, 'regions'):
+        args.regions = 'all'
     if not hasattr(args, 'hr_aug_max'):
         args.hr_aug_max = 1.0
     if not hasattr(args, 'hr_aug_min'):
@@ -110,7 +116,6 @@ else:
 # %%
 # ============ Cell 2: Dataset & index ============
 print("=" * 60)
-print(args.use_infonce)
 
 # Reproducibility: set all RNG seeds before any randomness (datasets, model, dataloader shuffle)
 def _set_seed(seed):
@@ -120,17 +125,21 @@ def _set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+_set_seed(args.seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
 def _worker_init_fn(worker_id):
-    """Deterministic DataLoader worker: seed per worker so augmentation order is reproducible."""
+    """Seed each DataLoader worker for reproducible augmentation."""
     base_seed = int(getattr(args, 'seed', 0))
     random.seed(base_seed + worker_id)
     np.random.seed(base_seed + worker_id)
 
-_set_seed(args.seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+
 print("  Random seed:", args.seed, "(deterministic training)")
 print("  weight_info:", getattr(args, "weight_info", 0.0))
+print("  regions:", getattr(args, "regions", "all"))
 
 # Test/target domain can be passed from CLI via -t/--tgt.
 tgt_domain = args.tgt
@@ -180,14 +189,13 @@ target_index_dir = os.path.join(index_root, tgt_domain)
 
 frames_num = args.frames_num
 batch_size = args.batchsize
-num_workers = args.num_workers
-GPU = args.GPU
+num_workers = NUM_WORKERS
+GPU = getattr(args, 'GPU', '0')
 
 print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
-print("  base_src      :", base_src)
 print("  tgt_domain    :", tgt_domain)
 print("  source_domain :", source_domain)
-print("  use_infonce   :", args.use_infonce)
+print("  weight_info   :", getattr(args, "weight_info", 0.0))
 print("  pos_domain    :", pos_domain)
 print("  neg_domain    :", neg_domain)
 print("Test STMap root:", target_root)
@@ -272,27 +280,16 @@ target_db = MyDataset.Data_DG(
 print("  baseline source dataset:", source_domain, "num_samples =", len(source_db))
 print("  baseline test dataset  :", tgt_domain, "num_samples =", len(target_db))
 
-print("Creating DataLoaders (baseline like train.py)...")
+print("Creating DataLoaders (batch_size=%d, num_workers=%d)..." % (batch_size, num_workers))
 # Fixed generator so shuffle order is reproducible across runs
 _generator = torch.Generator().manual_seed(args.seed)
+_dl_kwargs = dict(batch_size=batch_size, num_workers=num_workers, worker_init_fn=_worker_init_fn)
 src_loader = DataLoader(
-    source_db, batch_size=batch_size, shuffle=True, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn, generator=_generator
+    source_db, shuffle=True, generator=_generator, **_dl_kwargs
 )
-tgt_loader = DataLoader(
-    target_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
-
-# Dataloaders for pos/neg domains
-pos_loader = DataLoader(
-    pos_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
-neg_loader = DataLoader(
-    neg_db, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-    worker_init_fn=_worker_init_fn
-)
+tgt_loader = DataLoader(target_db, shuffle=False, **_dl_kwargs)
+pos_loader = DataLoader(pos_db, shuffle=False, **_dl_kwargs)
+neg_loader = DataLoader(neg_db, shuffle=False, **_dl_kwargs)
 
 steps_per_epoch = len(src_loader)
 print(f"steps_per_epoch (source) = {steps_per_epoch}")
@@ -308,6 +305,7 @@ else:
     print('Using CPU')
 
 BaseNet = model.BaseNet().to(device=device)
+# BaseNet = model.BaseNetResSkip().to(device=device)
 
 optimizer = torch.optim.Adam(BaseNet.parameters(), lr=args.lr)
 loss_func_NP = MyLoss.P_loss3().to(device)
@@ -325,40 +323,17 @@ Target_name = tgt_domain
 rPPGNet_name = config.build_run_name(
     tgt=Target_name,
     src=source_domain,
-    spatial=getattr(args, 'spatial_aug_rate', config.SPATIAL_AUG_RATE),
-    temporal=getattr(args, 'temporal_aug_rate', config.TEMPORAL_AUG_RATE),
-    ui=getattr(args, 'use_infonce', False),
-    weight_info=getattr(args, 'weight_info', None),
+    weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
+_run_suffix = os.environ.get('NEST_TRAIN_REGIONS_RUN_SUFFIX')
+if _run_suffix:
+    rPPGNet_name = f"{rPPGNet_name}_{_run_suffix}"
 
 log = Logger()
 log_path = os.path.join(config.RESULT_LOG_DIR, rPPGNet_name + '_log.txt')
 log.open(log_path, mode='a')
 log.write("\n----------------------------------------------- [START %s] %s\n\n" %
           (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
-
-# Setup MLflow experiment tracking
-use_mlflow = mlflow_utils.setup(
-    args=args,
-    experiment_name="rPPGNet_regions",
-    run_name=rPPGNet_name,
-)
-if use_mlflow:
-    mlflow_utils.log_params({
-        "src": source_domain,
-        "tgt": tgt_domain,
-        "regions": getattr(args, 'regions', 'all'),
-        "weight_info": getattr(args, 'weight_info', 0.01),
-        "tau_info": getattr(args, 'tau_info', 0.05),
-        "hr_aug_max": getattr(args, 'hr_aug_max', 1.0),
-        "hr_aug_min": getattr(args, 'hr_aug_min', 1.0),
-        "hr_aug_prob": getattr(args, 'hr_aug_prob', 1.0),
-        "run_tag": getattr(args, 'run_tag', 'aug'),
-        "max_iter": args.max_iter,
-        "batchsize": batch_size,
-        "lr": getattr(args, 'lr', 0.001),
-        "seed": getattr(args, 'seed', 0),
-    })
 
 # Print a train.py-style training summary for this baseline region run
 Source_domain_Names = [source_domain]
@@ -372,6 +347,7 @@ log.write("  Source domains:    %s\n" % Source_domain_Names)
 for i, d in enumerate(Source_domain_Names):
     log.write("    [%d] %s -> %s\n" % (i, d, source_index_dir))
 log.write("  Batch size:        %s\n" % batch_size)
+log.write("  Num workers:       %s\n" % num_workers)
 log.write("  Max iterations:    %s\n" % args.max_iter)
 log.write("  Frames per clip:   %s\n" % frames_num)
 log.write("  Loss type:         %s\n" % getattr(args, 'loss_type', config.LOSS_TYPE))
@@ -380,11 +356,39 @@ log.write("  Model:             %s\n" % BaseNet.__class__.__name__)
 log.write("  Source samples:    %s  (target: %d)\n" % (total_src_samples, len(target_db)))
 log.write("  Log file:          %s\n" % log_path)
 log.write("=" * 60 + "\n\n")
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.setup(
+        args,
+        experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
+        run_name=rPPGNet_name,
+        tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain},
+    )
+    mlflow_utils.log_params({
+        'source_domain': source_domain,
+        'target_domain': tgt_domain,
+        'pos_domain': pos_domain,
+        'neg_domain': neg_domain,
+        'weight_info': float(getattr(args, 'weight_info', 0.0)),
+        'tau_info': float(getattr(args, 'tau_info', 0.07)),
+        'regions': str(getattr(args, 'regions', 'all')),
+        'loss_type': getattr(args, 'loss_type', config.LOSS_TYPE),
+        'hr_aug_max': float(getattr(args, 'hr_aug_max', 1.0)),
+        'hr_aug_min': float(getattr(args, 'hr_aug_min', 1.0)),
+        'hr_aug_prob': float(getattr(args, 'hr_aug_prob', 1.0)),
+        'run_tag': str(getattr(args, 'run_tag', 'aug')),
+        'lr': args.lr,
+        'batchsize': batch_size,
+        'max_iter': args.max_iter,
+        'frames_num': frames_num,
+        'seed': args.seed,
+        'grad_clip': float(args.grad_clip),
+    })
 
 # %%
 # ============ Cell 4: Training loop (train.py-style iter/max_iter) ============
 BaseNet.train()
 start = timer()
+# max_iter = 200
 max_iter = args.max_iter
 
 src_iter = iter(src_loader)
@@ -409,14 +413,14 @@ for iter_num in range(max_iter + 1):
     data_aug = Variable(data_aug).float().to(device=device)
     bvp_aug = Variable(bvp_aug).float().to(device=device).unsqueeze(dim=1)
     HR_rel_aug = Variable(torch.Tensor(HR_rel_aug)).float().to(device=device)
-    # Optional InfoNCE contrastive alignment (pos/neg domains).
-    # When disabled, we don't run pos/neg forwards and align_pos_loss stays 0.
-    use_infonce = bool(getattr(args, "use_infonce", False))
+    # InfoNCE contrastive alignment (pos/neg domains) when weight_info > 0.
+    weight_info = float(getattr(args, "weight_info", 0.0))
+    use_align = weight_info > 0.0
     align_pos_loss = torch.tensor(0.0, device=device)
     av_pos = None
     av_neg = None
 
-    if use_infonce:
+    if use_align:
         # Positive/negative-domain batches for InfoNCE.
         # Important: run these auxiliary forwards WITHOUT gradients.
         try:
@@ -444,33 +448,25 @@ for iter_num in range(max_iter + 1):
     bvp_pre, HR_pr, av = BaseNet(data)
     bvp_pre_aug, HR_pr_aug, av_aug = BaseNet(data_aug)
 
-    if use_infonce:
+    if use_align:
         # InfoNCE-style alignment: per sample i, softmax over paired pos vs paired neg only (q·k_pos[i], q·k_neg[i]).
         m = av.shape[0]
-        tau = float(getattr(args, 'tau_info', 0.07))
+        tau = float(getattr(args, 'tau_info', 0.05))
         q = F.normalize(av, dim=1)
         k_pos = F.normalize(av_pos[:m], dim=1)
         k_neg = F.normalize(av_neg[:m], dim=1)
-        # Paired pos vs paired neg only (same index i): softmax over [q·k_pos[i], q·k_neg[i]].
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = (q * k_neg).sum(dim=1, keepdim=True) / tau  # (m, 1) — only k_neg[i] for row i
         neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
         pos_scores = torch.mm(q, k_pos.t()) / tau  # (m, m)
- 
-        logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2)
+        regions_mode = str(getattr(args, 'regions', 'all')).lower()
+        if regions_mode == "neg":
+            logits = torch.cat([neg_scores], dim=1)
+        elif regions_mode == "pos":
+            logits = torch.cat([pos_scores], dim=1)
+        else:
+            logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, 2m)
         labels = torch.zeros(m, dtype=torch.long, device=logits.device)
+        # labels = torch.arange(m, device=logits.device)
         align_pos_loss = F.cross_entropy(logits, labels)
-        # Original: all k_neg[j] as negatives for each row i (full (m, m+1) logits).
-        # pos_scores = (q * k_pos).sum(dim=1, keepdim=True) / tau  # (m, 1)
-        # neg_scores = torch.mm(q, k_neg.t()) / tau  # (m, m)
-        # logits = torch.cat([pos_scores, neg_scores], dim=1)  # (m, m+1)
-        # labels = torch.zeros(m, dtype=torch.long, device=logits.device)
-        # align_pos_loss = F.cross_entropy(logits, labels)
-        # Previous variant (batch keys): softmax over all k_pos and k_neg — also penalizes high q·k_pos[j], j!=i.
-        # keys = torch.cat([k_pos, k_neg], dim=0)          # (2m, d)
-        # logits = torch.mm(q, keys.t()) / tau            # (m, 2m)
-        # labels = torch.arange(m, device=logits.device)  # positives at indices 0..m-1
-        # align_pos_loss = F.cross_entropy(logits, labels)
 
     # One-time NaN diagnostics (helps locate first NaN source)
     if not _printed_nan_debug:
@@ -487,8 +483,6 @@ for iter_num in range(max_iter + 1):
             print("  bvp_pre_aug nan:", bool(torch.isnan(bvp_pre_aug).any()))
             print("  av_aug nan:", bool(torch.isnan(av_aug).any()))
             _printed_nan_debug = True
-
-
 
     # Optionally save per-subject feature representations (av) for this batch
     if getattr(args, 'save_features', False):
@@ -509,10 +503,6 @@ for iter_num in range(max_iter + 1):
         bvp_pre, HR_pr, bvp, HR_rel, source_domain,
         loss_func_NP, loss_func_L1, args, iter_num
     )
-    # src_loss_aug = MyLoss.get_loss(
-    #     bvp_pre_aug, HR_pr_aug, bvp_aug, HR_rel_aug, source_domain,
-    #     loss_func_NP, loss_func_L1, args, iter_num
-    # )
 
     loss_CM = -loss_func_NEST_CM(torch.cat((av, av_aug), dim=0))
     loss_DM = loss_func_NEST_DM(av, av_aug)
@@ -538,10 +528,11 @@ for iter_num in range(max_iter + 1):
         loss = src_loss + loss_TA
 
     # Add alignment regularizer between src av and pos_domain av
-    loss = loss + args.weight_info * align_pos_loss
+    loss = loss + weight_info * align_pos_loss
 
     if torch.sum(torch.isnan(loss)) > 0:
         print('Nan')
+        mlflow_utils.log_params({'stopped_early': True})
         break
     loss.backward()
     # Prevent exploding gradients -> NaNs in decoder output (bvp_pre)
@@ -561,15 +552,15 @@ for iter_num in range(max_iter + 1):
         )
         log.write(log_line)
         log.write('\n')
-        if use_mlflow:
-            mlflow_utils.log_metrics({
-                "loss": float(loss.data.cpu().numpy()),
-                "src_loss": float(src_loss.data.cpu().numpy()),
-                "loss_CM": float(loss_CM.data.cpu().numpy()),
-                "loss_DM": float(loss_DM.data.cpu().numpy()),
-                "loss_TA": float(loss_TA.data.cpu().numpy()),
-                "align_pos_loss": float(align_pos_loss.data.cpu().numpy()),
-            }, step=iter_num)
+        mlflow_utils.log_metrics({
+            'loss': float(loss.data.cpu().numpy()),
+            'src_loss': float(src_loss.data.cpu().numpy()),
+            'loss_CM': float(loss_CM.data.cpu().numpy()),
+            'loss_DM': float(loss_DM.data.cpu().numpy()),
+            'loss_TA': float(loss_TA.data.cpu().numpy()),
+            'align_pos_loss': float(align_pos_loss.data.cpu().numpy()),
+            'elapsed_min': float((timer() - start) / 60.0),
+        }, step=iter_num)
 
 print("Training finished.")
 
@@ -583,8 +574,10 @@ BVP_ALL = []
 BVP_PR_ALL = []
 nan_debug_saved = False
 
+print("Inferencing on target domain...")
 with torch.no_grad():
     for step, (data, bvp, HR_rel, _, _, _, paths) in enumerate(tgt_loader):
+        print(step)
         data = Variable(data).float().to(device=device)
         bvp = Variable(bvp).float().to(device=device)
         HR_rel = Variable(HR_rel).float().to(device=device)
@@ -618,10 +611,9 @@ io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_HR_rel.mat'), {'HR_r
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_ALL.mat'), {'Wave': BVP_ALL})
 io.savemat(os.path.join(config.RESULT_DIR, rPPGNet_name + '_WAVE_PR_ALL.mat'), {'Wave': BVP_PR_ALL})
 
-os.makedirs(config.MODEL_DIR, exist_ok=True)
-model_path = os.path.join(config.MODEL_DIR, rPPGNet_name)
-torch.save(BaseNet, model_path)
-print('Saved model:', os.path.abspath(model_path))
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.log_model(BaseNet)
+    print('Saved model to MLflow run:', mlflow_utils.get_run_id())
 
 wave_sort_out = os.path.join(config.WAVE_SORT_ROOT, tgt_domain, rPPGNet_name)
 train_utils.wave_sort_from_index(target_index_dir, np.array(BVP_ALL), np.array(BVP_PR_ALL), wave_sort_out)
@@ -636,25 +628,109 @@ try:
 except Exception as e:
     print("Warning: failed to write last_wave_sort_path.txt:", repr(e))
 
-# Write run metadata so eval_from_bvp can embed it in the eval JSON.
+meta_path = os.path.join(config.RESULT_LOG_DIR, "last_train_regions_meta.json")
 try:
-    import json as _json
-    meta = {
-        "source_domain": source_domain,
-        "target_domain": tgt_domain,
-        "weight_info": getattr(args, 'weight_info', None),
-        "run_name": rPPGNet_name,
-    }
-    meta_path = os.path.join(os.path.abspath(wave_sort_out), "run_meta.json")
-    os.makedirs(os.path.abspath(wave_sort_out), exist_ok=True)
+    os.makedirs(config.RESULT_LOG_DIR, exist_ok=True)
     with open(meta_path, "w") as f:
-        _json.dump(meta, f, indent=2)
-    print("Saved run metadata to:", meta_path)
+        json.dump(
+            {
+                "source_domain": source_domain,
+                "target_domain": tgt_domain,
+                "weight_info": float(getattr(args, "weight_info", 0.0)),
+                "tau_info": float(getattr(args, "tau_info", 0.07)),
+                "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
+                "regions": str(getattr(args, "regions", "all")),
+            },
+            f,
+            indent=2,
+        )
+    print("Saved train_regions meta to:", meta_path)
 except Exception as e:
-    print("Warning: failed to write run_meta.json:", repr(e))
+    print("Warning: failed to write last_train_regions_meta.json:", repr(e))
 
-if use_mlflow:
-    mlflow_utils.log_artifact(log_path)
+# Run evaluation and log eval metrics (MAE, RMSE, ME) to MLflow
+try:
+    from utils.eval_utils import (
+        run_eval,
+        write_segment_errors_csv,
+        print_hr_metrics,
+    )
+
+    eval_save_path = os.path.abspath(wave_sort_out)
+    print(f"\nEvaluating Wave_sort path: {eval_save_path}")
+
+    result, details = run_eval(eval_save_path, return_details=True)
+
+    feature_dir = os.path.join(eval_save_path, "feature")
+    os.makedirs(feature_dir, exist_ok=True)
+    csv_path = os.path.join(feature_dir, "segment_errors.csv")
+    write_segment_errors_csv(details, csv_path)
+
+    hr_metrics = result.get("HR", {})
+    eval_mae = float(hr_metrics.get("MAE", float("nan")))
+    eval_rmse = float(hr_metrics.get("RMSE", float("nan")))
+    eval_me = float(hr_metrics.get("ME", float("nan")))
+
+    print(f"Evaluation Results -> MAE: {eval_mae:.4f} | RMSE: {eval_rmse:.4f} | ME: {eval_me:.4f}")
+
+    if not _USE_JUPYTER_CONFIG:
+        mlflow_utils.log_metrics({
+            "eval_MAE": eval_mae,
+            "eval_RMSE": eval_rmse,
+            "eval_ME": eval_me,
+        })
+
+    print_hr_metrics(result, source_domain=source_domain, target_domain=tgt_domain)
+except Exception as exc:
+    print(f"Warning: automatic evaluation / MLflow logging failed: {exc}")
+
+if not _USE_JUPYTER_CONFIG:
+    mlflow_utils.log_artifacts([log_path, meta_path])
     mlflow_utils.end_run()
 
 # %%
+# ============ Cell 6: Eval (Jupyter only) ============
+print("Evaluating...")
+if _USE_JUPYTER_CONFIG:
+    from utils.eval_utils import (
+        run_eval,
+        write_segment_errors_csv,
+        write_chunk_mismatch_csv,
+        print_hr_metrics,
+    )
+
+    eval_save_path = os.path.abspath(wave_sort_out)
+    print(f"Evaluating Wave_sort path: {eval_save_path}")
+
+    result, details = run_eval(eval_save_path, return_details=True)
+
+    feature_dir = os.path.join(eval_save_path, "feature")
+    os.makedirs(feature_dir, exist_ok=True)
+
+    csv_path = os.path.join(feature_dir, "segment_errors.csv")
+    write_segment_errors_csv(details, csv_path)
+    print(f"Saved segment errors CSV: {csv_path}")
+
+    mismatch_csv = os.path.join(feature_dir, "chunk_mismatches.csv")
+    mismatch_path = write_chunk_mismatch_csv(details, mismatch_csv)
+    if mismatch_path:
+        print(f"Saved chunk mismatch CSV: {mismatch_path}")
+    else:
+        print("No gt/pr chunk-count mismatches across subjects.")
+
+    json_path = os.path.join(feature_dir, "eval_result.json")
+    payload = {
+        "save_path": eval_save_path,
+        "source_domain": source_domain,
+        "target_domain": tgt_domain,
+        "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
+        "regions": str(getattr(args, "regions", "all")),
+        "eval_protocol": "chunk_error_first_then_per_video_mae",
+        "chunk_mismatches": details.get("chunk_mismatches", []),
+        "result": result,
+    }
+    with open(json_path, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"Updated eval summary JSON with regions: {json_path}")
+
+    print_hr_metrics(result, source_domain=source_domain, target_domain=tgt_domain)

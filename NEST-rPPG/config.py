@@ -11,11 +11,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Repo root (one level up from NEST-rPPG)
 REPO_ROOT = os.path.dirname(BASE_DIR)
 
-# Data lives on the NVMe drive
-STMAP_PARENT_ROOT = '/mnt/nvme2/rppg_data'
+# --- Option B: Use STMap_my (PURE_my, UBFC_my, BUAA_my, regions) at REPO_ROOT/STMap_my/... ---
+STMAP_PARENT_ROOT = REPO_ROOT
 STMAP_DATA_ROOT = os.path.join(STMAP_PARENT_ROOT, 'STMap_my')
-STMAP_DATA_ROOT_REL = STMAP_PARENT_ROOT
-STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap', 'STMap_Index')
+STMAP_DATA_ROOT_REL = '../'
+STMAP_INDEX_BASE = os.path.join(BASE_DIR, 'STMap_my', 'STMap_Index')
 
 # Output dirs (under NEST-rPPG)
 RESULT_DIR = os.path.join(BASE_DIR, 'Output')
@@ -23,13 +23,27 @@ RESULT_LOG_DIR = os.path.join(BASE_DIR, 'Training_Log')
 WAVE_SORT_ROOT = os.path.join(BASE_DIR, 'Wave_sort')
 MODEL_DIR = os.path.join(BASE_DIR, 'model')
 
+# MLflow (override via MLFLOW_TRACKING_URI / MLFLOW_EXPERIMENT_NAME env vars)
+# MLflow 3.3+ requires a database backend (not file://). Artifacts still go under mlruns/.
+MLFLOW_ARTIFACT_ROOT = os.path.join(RESULT_LOG_DIR, 'mlruns')
+MLFLOW_DB_PATH = os.path.join(RESULT_LOG_DIR, 'mlflow.db')
+MLFLOW_TRACKING_URI = os.environ.get(
+    'MLFLOW_TRACKING_URI',
+    'sqlite:///' + os.path.abspath(MLFLOW_DB_PATH),
+)
+MLFLOW_EXPERIMENT_NAME = os.environ.get('MLFLOW_EXPERIMENT_NAME', 'nest-rppg')
+
 # ---------- Domain / run config (train + dataSort) ----------
 # For STMap: use PURE, UBFC, etc. For STMap_my: use PURE_my, UBFC_my (and enable Option A above).
-TGT_DOMAIN = 'UBFC'            # switched to original STMap domain for toy data test
-SRC_DOMAIN = 'PURE'            # single source; omit/None = use all TARGET_DOMAIN[tgt]
+TGT_DOMAIN = 'BUAA_my_in'      # e.g. PURE_my, PURE, UBFC_my, UBFC
+SRC_DOMAIN = 'PURE_my_in'      # single source; omit/None = use all TARGET_DOMAIN[tgt]
 SPATIAL_AUG_RATE = 0.5
 TEMPORAL_AUG_RATE = 0.1
-LOSS_TYPE = 'DM'         # One / TA / CM / DM / All
+LOSS_TYPE = 'One'         # One / TA / CM / DM / All
+WEIGHT_INFO = 0.0        # InfoNCE alignment weight (0 = disabled)
+WEIGHT_INFO_SWEEP = (0.01,)  # weight_info fixed to 0.01 so Optuna sweeps tau_info only
+# Optuna search space (optuna_tune_regions.py)
+OPTUNA_TAU_INFO_SWEEP = (0.01, 0.05, 0.1, 0.5)  # tau_info candidates (0.01, 0.05, 0.1, 0.5)
 SEED = 0
 
 # Mapping from target domain to list of all possible source domains
@@ -88,26 +102,26 @@ def get_index_dir(domain: str) -> str:
     return os.path.join(STMAP_INDEX_BASE, domain)
 
 
-def build_run_name(tgt=None, src=None, spatial=None, temporal=None, loss_type=None, ui=None, override=None, weight_info=None):
+def build_run_name(
+    tgt=None,
+    src=None,
+    spatial=None,
+    temporal=None,
+    loss_type=None,
+    ui=None,
+    override=None,
+    weight_info=None,
+    **kwargs
+):
     """
-    Build rPPGNet run name.
-
-    - If `ui` is provided (True/False): use the region-run style suffix `_uiTrue` / `_uiFalse`.
-    - Otherwise: use the classic suffix `_loss<LOSS_TYPE>` (backward-compatible with train.py outputs).
-    - weight_info is appended as `_wi<value>` when provided, to keep runs with different
-      values from writing to the same output directory.
+    Build rPPGNet run name: rPPGNet_<tgt>_src<src>_w<weight_info>.
     """
     if override:
         return override
     tgt = tgt or TGT_DOMAIN
     src = src or SRC_DOMAIN
-    if ui is not None:
-        name = f"rPPGNet_{tgt}_src{src}_ui{bool(ui)}"
-        if weight_info is not None:
-            name += f"_wi{weight_info}"
-        return name
-    loss_type = loss_type or LOSS_TYPE
-    return f"rPPGNet_{tgt}_src{src}_loss{loss_type}"
+    w = float(WEIGHT_INFO if weight_info is None else weight_info)
+    return f"rPPGNet_{tgt}_src{src}_w{'%g' % w}"
 
 
 def canonical_data_name(domain: str) -> str:
@@ -123,7 +137,7 @@ def canonical_data_name(domain: str) -> str:
 # Comment out the option you are NOT using.
 
 # --- Option A: train.py output (WAVE_SORT_ROOT / TGT_DOMAIN / build_run_name()) ---
-EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, TGT_DOMAIN, build_run_name())
+EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, TGT_DOMAIN, build_run_name(weight_info=WEIGHT_INFO))
 
 # --- Option B: train_regions output (set test_domain and run name to match your regions run) ---
 # EVAL_SAVE_PATH = os.path.join(WAVE_SORT_ROOT, 'UBFC_my_in', 'rPPGNet_UBFC_my_in_srcPURE_my_in')

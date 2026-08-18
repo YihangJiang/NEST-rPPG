@@ -121,9 +121,11 @@ print(f"Target domain: {config.TGT_DOMAIN}")
 print("Feature    \tME\t\tStd\t\tMAE\t\tRMSE\t\tMER\t\tr")
 print("-" * 90)
 for name, metrics in result.items():
+    mer_val = metrics.get('MER', float('nan'))
+    r_val = metrics.get('r', float('nan'))
     print(
-        f"{name:10}\t{metrics['ME']:.6f}\t{metrics['Std']:.6f}\t{metrics['MAE']:.6f}\t"
-        f"{metrics['RMSE']:.6f}\t{metrics['MER']:.6f}\t{metrics['r']:.6f}"
+        f"{name:10}\t{metrics.get('ME', float('nan')):.6f}\t{metrics.get('Std', float('nan')):.6f}\t{metrics.get('MAE', float('nan')):.6f}\t"
+        f"{metrics.get('RMSE', float('nan')):.6f}\t{mer_val:.6f}\t{r_val:.6f}"
     )
 
 # %%
