@@ -41,7 +41,7 @@ BAR_CONFIGS = [
         "regions": "whole",
         "weight": 0.0,
         "use_whole_src": True,
-        "color": "#4C72B0",
+        "color": "#0173B2",  # Seaborn colorblind blue
     },
     {
         "key": "infra",
@@ -49,7 +49,7 @@ BAR_CONFIGS = [
         "regions": "all",
         "weight": 0.0,
         "use_whole_src": False,
-        "color": "#55A868",
+        "color": "#DE8F05",  # Seaborn colorblind orange
     },
     {
         "key": "infra_w001",
@@ -57,7 +57,7 @@ BAR_CONFIGS = [
         "regions": "all",
         "weight": 0.01,
         "use_whole_src": False,
-        "color": "#C44E52",
+        "color": "#029E73",  # Seaborn colorblind green
     },
 ]
 

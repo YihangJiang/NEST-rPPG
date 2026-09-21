@@ -61,7 +61,7 @@ if _USE_JUPYTER_CONFIG:
         # Save per-subject feature representations (av) during training
         save_features=True,
         # Weight and temperature for InfoNCE alignment between src and pos/neg domains
-        weight_info=0.05,
+        weight_info=0.01,
         tau_info=0.05,
         regions='all',
         grad_clip=5.0,
@@ -176,10 +176,17 @@ frames_num = args.frames_num
 batch_size = args.batchsize
 num_workers = NUM_WORKERS
 GPU = args.GPU
+channel = getattr(args, "channel", "all")
+if isinstance(channel, str):
+    channel = channel.lower()
+else:
+    channel = "all"
+args.channel = channel
 
 print("Training domains (suffix rule, independent of config.TARGET_DOMAIN):")
 print("  tgt_domain    :", tgt_domain)
 print("  source_domain :", source_domain)
+print("  channel       :", channel)
 print("  weight_info   :", getattr(args, "weight_info", 0.0))
 print("  pos_domain    :", pos_domain)
 print("  neg_domain    :", neg_domain)
@@ -328,6 +335,7 @@ log.write("TRAINING CONFIG (regions baseline)\n")
 log.write("  Target domain:     %s\n" % Target_name)
 log.write("  Target index:      %s\n" % target_index_dir)
 log.write("  Target STMap:      %s\n" % args.stmap_name)
+log.write("  Channel:           %s\n" % channel)
 log.write("  Source domains:    %s\n" % Source_domain_Names)
 for i, d in enumerate(Source_domain_Names):
     log.write("    [%d] %s -> %s\n" % (i, d, source_index_dir))
@@ -346,11 +354,12 @@ if not _USE_JUPYTER_CONFIG:
         args,
         experiment_name=getattr(args, 'mlflow_experiment', None) or 'nest-rppg-regions',
         run_name=rPPGNet_name,
-        tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain},
+        tags={'script': 'train_regions', 'source_domain': source_domain, 'target_domain': tgt_domain, 'channel': channel},
     )
     mlflow_utils.log_params({
         'source_domain': source_domain,
         'target_domain': tgt_domain,
+        'channel': channel,
         'pos_domain': pos_domain,
         'neg_domain': neg_domain,
         'weight_info': float(getattr(args, 'weight_info', 0.0)),
@@ -650,6 +659,7 @@ try:
             {
                 "source_domain": source_domain,
                 "target_domain": tgt_domain,
+                "channel": channel,
                 "weight_info": float(getattr(args, "weight_info", 0.0)),
                 "tau_info": float(getattr(args, "tau_info", 0.07)),
                 "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),

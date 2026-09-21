@@ -161,6 +161,18 @@ class Data_DG(Dataset):
         # get STMap
         STMap_Path = os.path.join(nowPath, img_name)
         feature_map = cv2.imread(os.path.join(STMap_Path, STMap_name))
+        channel = getattr(self.args, 'channel', 'all')
+        if isinstance(channel, str):
+            channel = channel.lower()
+        else:
+            channel = 'all'
+
+        if channel in ['r', 'g', 'b']:
+            # cv2.imread loads BGR: channel 0 = Blue, channel 1 = Green, channel 2 = Red
+            ch_idx_map = {'b': 0, 'g': 1, 'r': 2}
+            ch_idx = ch_idx_map[channel]
+            feature_map = np.repeat(feature_map[:, :, ch_idx:ch_idx+1], 3, axis=2)
+
         With, Max_frame, _ = feature_map.shape
         # get original map
         map_ori = feature_map[:, Step_Index:Step_Index + self.frames_num, :]

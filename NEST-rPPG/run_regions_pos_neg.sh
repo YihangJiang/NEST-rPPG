@@ -37,9 +37,9 @@ conda activate mpipe
 # python eval_from_bvp.py
 
 # 5) BUAA -> PURE
-python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions pos --tau-info 0.05 --weight_info 0.01
-python eval_from_bvp.py
+# python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions pos --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
 
 # 6) BUAA -> UBFC
-python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions pos --tau-info 0.05 --weight_info 0.01
+python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions pos --tau-info 0.05 --weight_info 0.01 --max_iter 100
 python eval_from_bvp.py

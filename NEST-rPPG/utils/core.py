@@ -133,6 +133,10 @@ def get_args():
                         choices=['all', 'neg', 'pos'],
                         help='InfoNCE logits source: all (pos+neg), neg-only, or pos-only')
 
+    parser.add_argument('-c', '--channel', dest='channel', type=str, default='all',
+                        choices=['all', 'r', 'g', 'b', 'R', 'G', 'B', 'rgb', 'RGB'],
+                        help="Color channel to use: 'all' (default), 'r', 'g', or 'b'")
+
     # MLflow experiment tracking
     parser.add_argument('--mlflow-experiment', dest='mlflow_experiment', type=str, default=None,
                         help='MLflow experiment name (default: config.MLFLOW_EXPERIMENT_NAME)')
