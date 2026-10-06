@@ -662,6 +662,7 @@ def append_regions_eval_summary_csv(
     target_domain: str,
     weight: float,
     regions: str,
+    channel: str = "rgb",
     result: Dict[str, Dict[str, Any]],
     metric_key: str = "HR",
 ) -> str:
@@ -669,33 +670,24 @@ def append_regions_eval_summary_csv(
     Append one row to a summary CSV (creates file with header if missing).
 
     Intended for `run_regions.sh` flows: after `train_regions.py` + `eval_from_bvp.py`,
-    record source/target domains, InfoNCE weight, and HR metrics from `run_eval` output.
+    record source/target domains, InfoNCE weight, regions, channel, and HR metrics from `run_eval` output.
 
-    Columns: Source Domain, Target domain, Weight, Regions, Std, MAE, MAE_Std, MAE_SE,
+    Columns: Source Domain, Target domain, Weight, Regions, Channel, Std, MAE, MAE_Std, MAE_SE,
     RMSE, RMSE_Std, RMSE_SE
     """
     if metric_key not in result:
         raise KeyError(f"result has no key {metric_key!r}; keys: {list(result.keys())}")
     m = result[metric_key]
-    row = {
-        "Source Domain": source_domain,
-        "Target domain": target_domain,
-        "Weight": weight,
-        "Regions": regions,
-        "Std": m.get("Std", np.nan),
-        "MAE": m.get("MAE", np.nan),
-        "MAE_Std": m.get("MAE_Std", np.nan),
-        "MAE_SE": m.get("MAE_SE", np.nan),
-        "RMSE": m.get("RMSE", np.nan),
-        "RMSE_Std": m.get("RMSE_Std", np.nan),
-        "RMSE_SE": m.get("RMSE_SE", np.nan),
-    }
+    channel = str(channel).strip().lower()
+    if channel == "all":
+        channel = "rgb"
+
     fieldnames = [
-        "Source Domain", "Target domain", "Weight", "Regions",
+        "Source Domain", "Target domain", "Weight", "Regions", "Channel",
         "Std", "MAE", "MAE_Std", "MAE_SE", "RMSE", "RMSE_Std", "RMSE_SE",
     ]
-    training_cols = fieldnames[:4]
-    inference_cols = fieldnames[4:]
+    training_cols = fieldnames[:5]
+    inference_cols = fieldnames[5:]
 
     csv_path = os.path.abspath(csv_path)
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -705,9 +697,13 @@ def append_regions_eval_summary_csv(
         df = pd.read_csv(csv_path)
         if "r" in df.columns:
             df = df.drop(columns=["r"])
+        if "Channel" not in df.columns:
+            df["Channel"] = "rgb"
+        else:
+            df["Channel"] = df["Channel"].fillna("rgb").replace({"all": "rgb"})
         df = df.reindex(columns=fieldnames)
         new_row = pd.DataFrame([[
-            source_domain, target_domain, weight, regions,
+            source_domain, target_domain, weight, regions, channel,
             m.get("Std", np.nan), m.get("MAE", np.nan),
             m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
             m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),
@@ -722,7 +718,7 @@ def append_regions_eval_summary_csv(
     else:
         # Create new DataFrame with single-level headers.
         new_row = [[
-            source_domain, target_domain, weight, regions,
+            source_domain, target_domain, weight, regions, channel,
             m.get("Std", np.nan), m.get("MAE", np.nan),
             m.get("MAE_Std", np.nan), m.get("MAE_SE", np.nan),
             m.get("RMSE", np.nan), m.get("RMSE_Std", np.nan), m.get("RMSE_SE", np.nan),

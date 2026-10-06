@@ -181,6 +181,7 @@ def lookup_row(
     target: str,
     weight: float,
     regions: str,
+    channel: str = "rgb",
 ) -> pd.Series | None:
     mask = (
         (df["Source Domain"] == source)
@@ -188,6 +189,8 @@ def lookup_row(
         & (df["Regions"] == regions)
         & (np.isclose(df["Weight"], weight, rtol=0.0, atol=1e-9))
     )
+    if "Channel" in df.columns:
+        mask = mask & (df["Channel"].astype(str).str.strip().str.lower() == str(channel).strip().lower())
     rows = df.loc[mask]
     if rows.empty:
         return None

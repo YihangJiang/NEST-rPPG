@@ -317,6 +317,8 @@ rPPGNet_name = config.build_run_name(
     src=source_domain,
     weight_info=float(getattr(args, 'weight_info', config.WEIGHT_INFO)),
 )
+if channel in ['r', 'g', 'b']:
+    rPPGNet_name = f"{rPPGNet_name}_ch_{channel}"
 _run_suffix = os.environ.get('NEST_TRAIN_REGIONS_RUN_SUFFIX')
 if _run_suffix:
     rPPGNet_name = f"{rPPGNet_name}_{_run_suffix}"
@@ -714,6 +716,7 @@ if _USE_JUPYTER_CONFIG:
         "target_domain": tgt_domain,
         "loss_type": getattr(args, "loss_type", config.LOSS_TYPE),
         "regions": str(getattr(args, "regions", "all")),
+        "channel": str(getattr(args, "channel", "rgb")),
         "eval_protocol": "chunk_error_first_then_per_video_mae",
         "chunk_mismatches": details.get("chunk_mismatches", []),
         "result": result,
@@ -722,6 +725,9 @@ if _USE_JUPYTER_CONFIG:
         json.dump(payload, f, indent=2)
     print(f"Updated eval summary JSON with regions: {json_path}")
 
+    channel_for_csv = getattr(args, "channel", "rgb")
+    if channel_for_csv == "all":
+        channel_for_csv = "rgb"
     summary_csv = os.path.join(config.RESULT_LOG_DIR, "regions_eval_summary.csv")
     append_regions_eval_summary_csv(
         summary_csv,
@@ -729,6 +735,7 @@ if _USE_JUPYTER_CONFIG:
         target_domain=tgt_domain,
         weight=float(getattr(args, "weight_info", 0.0)),
         regions=str(getattr(args, "regions", "all")),
+        channel=channel_for_csv,
         result=result,
     )
     print(f"Appended regions eval summary row: {summary_csv}")

@@ -145,7 +145,11 @@ src_for_csv = str(meta["source_domain"])
 tgt_for_csv = str(meta["target_domain"])
 weight_for_csv = float(meta["weight_info"])
 regions_for_csv = str(meta["regions"])
+channel_for_csv = str(meta.get("channel", "rgb")).strip().lower()
+if channel_for_csv == "all":
+    channel_for_csv = "rgb"
 payload["regions"] = regions_for_csv
+payload["channel"] = channel_for_csv
 
 frames_num = infer_frames_num_from_wave_sort(save_path)
 train_index_dir = os.path.join(config.STMAP_INDEX_BASE, src_for_csv)
@@ -185,6 +189,7 @@ append_regions_eval_summary_csv(
     target_domain=tgt_for_csv,
     weight=weight_for_csv,
     regions=regions_for_csv,
+    channel=channel_for_csv,
     result=result,
 )
 print(f"Appended regions eval summary row: {summary_csv}")
@@ -210,6 +215,7 @@ if mlflow_utils.resume_run():
         'eval_target_domain': tgt_for_csv,
         'eval_weight_info': weight_for_csv,
         'eval_regions': regions_for_csv,
+        'eval_channel': channel_for_csv,
         'eval_mean_guess_train_domain': src_for_csv,
         'eval_mean_guess_test_domain': tgt_for_csv,
         'eval_mean_guess_n_train_segments': int(mean_guess['n_train_segments']),

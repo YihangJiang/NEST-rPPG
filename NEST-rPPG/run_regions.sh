@@ -15,35 +15,69 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate mpipe
 
 # ============================================
-# Compare tau=0.03: weight_info=0.01 vs weight_info=0
 # 6 cross-dataset pairs (PURE, UBFC, BUAA — all directed pairs)
+# Testing R, G, B channels separately (-c r, -c g, -c b)
 # ============================================
-# python train_regions.py --src 'PURE_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'PURE_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0
+
+# --------------------------------------------
+# Channel: Red (r)
+# --------------------------------------------
+# python train_regions.py --src 'PURE_my_in' -t 'UBFC_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
 # python eval_from_bvp.py
 
-# python train_regions.py --src 'PURE_my_in' -t 'BUAA_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'PURE_my_in' -t 'BUAA_my_in' --regions all --tau-info 0.05 --weight_info 0
+# python train_regions.py --src 'PURE_my_in' -t 'BUAA_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
 # python eval_from_bvp.py
 
-# python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0
+# python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
 # python eval_from_bvp.py
 
-# python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all --tau-info 0.05 --weight_info 0
+# python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
 # python eval_from_bvp.py
 
-python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0.01
+# python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all -c r --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# # --------------------------------------------
+# # Channel: Green (g)
+# # --------------------------------------------
+# python train_regions.py --src 'PURE_my_in' -t 'UBFC_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'PURE_my_in' -t 'BUAA_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all -c g --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# --------------------------------------------
+# Channel: Blue (b)
+# --------------------------------------------
+# python train_regions.py --src 'PURE_my_in' -t 'UBFC_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'PURE_my_in' -t 'BUAA_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'UBFC_my_in' -t 'PURE_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+# python train_regions.py --src 'UBFC_my_in' -t 'BUAA_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
+# python eval_from_bvp.py
+
+python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
 python eval_from_bvp.py
-# python train_regions.py --src 'BUAA_my_in' -t 'PURE_my_in' --regions all --tau-info 0.05 --weight_info 0
-# python eval_from_bvp.py
 
-# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0.01
-# python eval_from_bvp.py
-# python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all --tau-info 0.05 --weight_info 0
-# python eval_from_bvp.py
+python train_regions.py --src 'BUAA_my_in' -t 'UBFC_my_in' --regions all -c b --tau-info 0.05 --weight_info 0.01
+python eval_from_bvp.py
